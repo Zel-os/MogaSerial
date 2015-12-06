@@ -1,7 +1,7 @@
 <pre>
-----------------------------------------
-  Moga Serial to vJoy Interface, v 0.9  
-----------------------------------------
+------------------------------------------
+  Moga Serial to vJoy Interface, v 0.9.2  
+------------------------------------------
 
 The Moga line of controllers are neat pieces of kit, with one glaring issue.
 They don't work right in Windows!  No native driver means being forced to use
@@ -59,6 +59,13 @@ TO-DO
 A proper GUI or system tray dock would be nice to have.  Support for more than
 one controller would be nice, too.  A switch to choose which controller number
 the Moga lights up when connected would just be frivolous fun.
+
+
+== Changes from 0.9.0
+--- Listen mode seems to be working consistently now.  Reduced active polling to once
+     every two seconds to check for disconnects.  This should reduce bluetooth network
+	 traffic and prevent any chance of missed inputs.
+---- General code cleanups.
 
 ------------------------
 
