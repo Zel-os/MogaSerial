@@ -79,6 +79,7 @@
     <None Include="moga.ico" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="MogaSerial.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
