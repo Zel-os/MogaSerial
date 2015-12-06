@@ -1,6 +1,6 @@
 <pre>
 ------------------------------------------
-  Moga Serial to vJoy Interface, v 0.9.2  
+  Moga Serial to vJoy Interface, v 0.9.4 
 ------------------------------------------
 
 The Moga line of controllers are neat pieces of kit, with one glaring issue.
@@ -61,11 +61,15 @@ one controller would be nice, too.  A switch to choose which controller number
 the Moga lights up when connected would just be frivolous fun.
 
 
+== Changes from 0.9.3
+--- Fixed controller state not being properly zero'd on init and disconnect.
+== Changes from 0.9.2
+--- vJoy device id selection routine - added by badfontkeming@gmail.com
 == Changes from 0.9.0
 --- Listen mode seems to be working consistently now.  Reduced active polling to once
      every two seconds to check for disconnects.  This should reduce bluetooth network
-	 traffic and prevent any chance of missed inputs.
----- General code cleanups.
+     traffic and prevent any chance of missed inputs.
+--- General code cleanups.
 
 ------------------------
 
