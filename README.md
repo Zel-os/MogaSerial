@@ -81,5 +81,5 @@ http://ngemu.com/threads/moga-pro-power-triggers-not-detected.170401/
 
 
 Moga controllers are (c) PowerA and MogaAnywhere.com
-This application is (c) myself - jmont@sonic.net
+This application is (c) Jake Montgomery - jmont@sonic.net
 </pre>
