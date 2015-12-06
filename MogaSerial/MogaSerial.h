@@ -37,7 +37,7 @@ int		MogaGetMsg(MOGA_DATA *);
 int		MogaConnect(MOGA_DATA *);
 void	MogaReset(MOGA_DATA *);
 void	MogaListener(MOGA_DATA *);
-int		vJoySetup(UINT);
+int		vJoySetup(MOGA_DATA *);
 void	vJoyUpdate(MOGA_DATA *);
 void	intHandler(int);
 

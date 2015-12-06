@@ -21,6 +21,7 @@ Notes:
 	Things aren't very OO friendly yet.  Could matter if/when threaded and GUI-enabled.
 
 Revision History:
+	0.9.4 - Fixed controller state not being properly zero'd on init and disconnect.
 	0.9.3 - vJoy device id selection routine - added by badfontkeming@gmail.com
 	0.9.2 - Switched to passive listening mode for controller updates.
 	        Reduced active polling to once every two seconds to check for disconnects.
@@ -41,7 +42,7 @@ Revision History:
 //but I think that's awful so I'll be copying your code :)
 int promptVJoyID(void)
 {
-	printf("Please enter the desired vJoy controller slot: [1-16] (def. 1) ");
+	printf("Please enter the desired vJoy controller slot: [1-16] (def. 1)\n");
 	char buf[5000];
 	int device = -1;
 	int retVal;
@@ -134,9 +135,9 @@ int MogaSendMsg(MOGA_DATA *pMogaData, unsigned char code)
 {
 	uint8_t i, chksum = 0;
 	char msg[SENDMSG_LEN];
-	msg[0] = 0x5a;           // identifier
-	msg[1] = SENDMSG_LEN;    // message length - always 5
-	msg[2] = code;           // command to send
+	msg[0] = 0x5a;            // identifier
+	msg[1] = SENDMSG_LEN;     // message length - always 5
+	msg[2] = code;            // command to send
 	msg[3] = pMogaData->CID;  // controller id
 	for (i = 0; i < SENDMSG_LEN-1; i++)
 		chksum = msg[i] ^ chksum;
@@ -176,6 +177,7 @@ int MogaGetMsg(MOGA_DATA *pMogaData)
 	if (recvbuf[0] != 0x7a || recvbuf[recvmsg_len-1] != chksum)
 		return -2;    // Received bad data
 	memcpy(pMogaData->State, recvbuf+4, MOGABUF_LEN);
+	//if (recvmsg_len == 12) { pMogaData->State[6] = 0;  pMogaData->State[7] = 0; }
 	//PrintBuf(recvbuf);
 	return 1;
 }
@@ -222,10 +224,12 @@ int MogaConnect(MOGA_DATA *pMogaData)
 }
 
 
-void MogaReset(MOGA_DATA *MogaData)
+void MogaReset(MOGA_DATA *pMogaData)
 {
-	closesocket(MogaData->Socket);
-	MogaData->Socket = INVALID_SOCKET;
+	closesocket(pMogaData->Socket);
+	pMogaData->Socket = INVALID_SOCKET;
+	memset(pMogaData->State, 0, MOGABUF_LEN);
+	vJoyUpdate(pMogaData);
 	if (KeepGoing)
 	{
 		printf("Reconnecting in 3 seconds.\n");
@@ -264,7 +268,7 @@ void MogaListener(MOGA_DATA *pMogaData)
 
 // The new 2.1.6 vJoy dll won't work with older versions of vJoy drivers.
 // Fortunately the old 2.0.5 vJoy dll works with new versions, despite giving an error message.
-int vJoySetup(UINT vJoyInterface)
+int vJoySetup(MOGA_DATA *pMogaData)
 {
 	WORD VerDll, VerDrv;
 	if (!vJoyEnabled())
@@ -276,7 +280,7 @@ int vJoySetup(UINT vJoyInterface)
 		printf("vJoy Driver (version %04x) does not match vJoyInterface DLL (version %04x)\n", VerDrv ,VerDll);
 
 	// Get the state of the requested device
-	VjdStat status = GetVJDStatus(vJoyInterface);
+	VjdStat status = GetVJDStatus(pMogaData->vJoyInt);
 	switch (status)
 	{
 	case VJD_STAT_OWN:
@@ -284,24 +288,25 @@ int vJoySetup(UINT vJoyInterface)
 	case VJD_STAT_FREE:
 		break;
 	case VJD_STAT_BUSY:
-		printf("vJoy Device %d is already owned by another feeder\nCannot continue\n", vJoyInterface);
+		printf("vJoy Device %d is already owned by another feeder\nCannot continue\n", pMogaData->vJoyInt);
 		return -3;
 	case VJD_STAT_MISS:
-		printf("vJoy Device %d is not installed or disabled\nCannot continue\n", vJoyInterface);
+		printf("vJoy Device %d is not installed or disabled\nCannot continue\n", pMogaData->vJoyInt);
 		return -4;
 	default:
-		printf("vJoy Device %d general error\nCannot continue\n", vJoyInterface);
+		printf("vJoy Device %d general error\nCannot continue\n", pMogaData->vJoyInt);
 		return -1;
 	};
 
 	// Acquire the target
-	if ((status == VJD_STAT_OWN) || ((status == VJD_STAT_FREE) && (!AcquireVJD(vJoyInterface))))
+	if ((status == VJD_STAT_OWN) || ((status == VJD_STAT_FREE) && (!AcquireVJD(pMogaData->vJoyInt))))
 	{
-		printf("Failed to acquire vJoy device number %d.\n", vJoyInterface);
+		printf("Failed to acquire vJoy device number %d.\n", pMogaData->vJoyInt);
 		return -1;
 	}
-	printf("vJoy %S enabled, attached to device %d.\n\n", (wchar_t *)GetvJoySerialNumberString(), vJoyInterface);
-	ResetVJD(vJoyInterface);
+	printf("vJoy %S enabled, attached to device %d.\n\n", (wchar_t *)GetvJoySerialNumberString(), pMogaData->vJoyInt);
+	memset(pMogaData->State, 0, MOGABUF_LEN);
+	vJoyUpdate(pMogaData);
 
 	return 1;
 }
@@ -371,7 +376,7 @@ int main(int argc, char **argv)
 	signal(SIGINT, intHandler);
 
 	printf("-------------------------------------------\n");
-	printf("  Moga serial to vJoy interface   v 0.9.3  \n");
+	printf("  Moga serial to vJoy interface   v 0.9.4  \n");
 	printf("-------------------------------------------\n");
 
    //Get desired vJoy port (allows multi-instance multicontroller)
@@ -379,7 +384,7 @@ int main(int argc, char **argv)
    //for future multi-controller support
    
 	MogaData.vJoyInt = promptVJoyID();
-	retVal = vJoySetup(MogaData.vJoyInt);
+	retVal = vJoySetup(&MogaData);
 	if (retVal < 1)
 	{
 		Sleep(5000);
@@ -405,7 +410,7 @@ int main(int argc, char **argv)
 		retVal = MogaConnect(&MogaData);
 		if (retVal)
 			MogaListener(&MogaData);
-		// MogaListener only returns on an error.
+		// MogaListener only returns on an error or ctrl-c.
 		MogaReset(&MogaData);
 	}
  
@@ -414,5 +419,5 @@ int main(int argc, char **argv)
 	RelinquishVJD(MogaData.vJoyInt);
 	Sleep(500);
 
-	return 0;
+	return retVal;
 }
