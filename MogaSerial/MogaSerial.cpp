@@ -21,13 +21,42 @@ Notes:
 	Things aren't very OO friendly yet.  Could matter if/when threaded and GUI-enabled.
 
 Revision History:
-	0.9 - First semi-public release.
-	0.x - Test builds and device probing.
+	0.9.3 - vJoy device id selection routine - added by badfontkeming@gmail.com
+	0.9.2 - Switched to passive listening mode for controller updates.
+	        Reduced active polling to once every two seconds to check for disconnects.
+	        This should reduce bluetooth network traffic and prevent any chance of missed inputs.
+	0.9.0 - First semi-public release.
+	0.x.x - Test builds and device probing.
 */
 
 
 // Link to ws2_32.lib
 #include	"MogaSerial.h"
+
+
+//Basic method to prompt the user for which vJoy ID to use
+//Separating this as a method to keep things clean-ish
+
+//my c++ class always taught me to pipe things straight from cin
+//but I think that's awful so I'll be copying your code :)
+int promptVJoyID(void)
+{
+	printf("Please enter the desired vJoy controller slot: [1-16] (def. 1) ");
+	char buf[5000];
+	int device = -1;
+	int retVal;
+	//no input validation loop; we'll be defaulting to 1.
+	printf("> ");
+	fgets(buf, sizeof(buf), stdin);
+	retVal = sscanf_s(buf, "%d", &device);
+
+	if (device < 1 || device > 16 || retVal != 1)
+	{
+		device = 1;
+		printf("Defaulting to 1.\n");
+	}
+	return device;
+}
 
 
 BOOL FindMogaAddress(MOGA_DATA *pMogaData)
@@ -98,6 +127,9 @@ BOOL FindMogaAddress(MOGA_DATA *pMogaData)
 //   101 - poll command response, analog triggers  (14b response)
 //   102 - listen mode status update, analog triggers  (14b response)
 // Oddly, there seems to be no way to obtain battery status.  It's reported in HID Mode B, but not here.
+
+// TODO: Find out if the official Moga app is aware of the battery status of the controller.
+// TODO: Change the controller's lights to reflect the vJoy ID selected.
 int MogaSendMsg(MOGA_DATA *pMogaData, unsigned char code)
 {
 	uint8_t i, chksum = 0;
@@ -339,9 +371,14 @@ int main(int argc, char **argv)
 	signal(SIGINT, intHandler);
 
 	printf("-------------------------------------------\n");
-	printf("  Moga serial to vJoy interface   v 0.9.2  \n");
+	printf("  Moga serial to vJoy interface   v 0.9.3  \n");
 	printf("-------------------------------------------\n");
 
+   //Get desired vJoy port (allows multi-instance multicontroller)
+   //TODO: Consider moving this to after the controller selection
+   //for future multi-controller support
+   
+	MogaData.vJoyInt = promptVJoyID();
 	retVal = vJoySetup(MogaData.vJoyInt);
 	if (retVal < 1)
 	{
