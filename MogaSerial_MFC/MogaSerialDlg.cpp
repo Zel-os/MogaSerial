@@ -1,6 +1,25 @@
+/*
+Moga serial to vJoy interface
 
-// MogaSerialDlg.cpp : implementation file
-//
+Copyright (c) Jake Montgomery.  All rights reserved.
+
+    THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY
+    KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+    IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR
+    PURPOSE.
+
+Module Name:
+    MogaSerialDlg.cpp
+
+Abstract:
+	MFC GUI implementation for the Moga serial to vJoy interface program.
+
+Revision History:
+	1.2.0 - Message callbacks and debug switch added.  First public release.
+	1.1.x - Trigger mode switch added.  Tooltips and status messages added.
+	1.0.x - Test builds and experimentation.
+
+*/
 
 #include "stdafx.h"
 #include "MogaSerial.h"

@@ -12,15 +12,20 @@ Module Name:
     MogaSerial.cpp
     
 Abstract:
-	Monolithic code file for the Moga serial to vJoy interface program.
+	Main worker code file for the Moga serial to vJoy interface program.
 
 Environment:
     kernel mode and User mode
 
-Notes:
-	Things aren't very OO friendly yet.  Could matter if/when threaded and GUI-enabled.
-
 Revision History:
+	1.2.0 - Message callbacks and debug switch added.
+	1.1.x - Trigger mode switch added.
+	1.0.x - Class conversion for MFC build.
+	0.9.4 - Fixed controller state not being properly zero'd on init and disconnect.
+	0.9.3 - vJoy device id selection routine - added by badfontkeming@gmail.com
+	0.9.2 - Switched to passive listening mode for controller updates.
+	        Reduced active polling to once every two seconds to check for disconnects.
+	        This should reduce bluetooth network traffic and prevent any chance of missed inputs.
 	0.9 - First semi-public release.
 	0.x - Test builds and device probing.
 */
