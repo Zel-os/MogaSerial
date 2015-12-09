@@ -3,6 +3,8 @@ Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MogaSerial", "MogaSerial\MogaSerial.vcxproj", "{AFDFBDEE-DF7B-41F3-A7A7-7BD52FDED86C}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MogaSerial_MFC", "MogaSerial_MFC\MogaSerial_MFC.vcxproj", "{C27B25C0-66DD-44BA-BF64-A068A11157F5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -13,6 +15,10 @@ Global
 		{AFDFBDEE-DF7B-41F3-A7A7-7BD52FDED86C}.Debug|Win32.Build.0 = Debug|Win32
 		{AFDFBDEE-DF7B-41F3-A7A7-7BD52FDED86C}.Release|Win32.ActiveCfg = Release|Win32
 		{AFDFBDEE-DF7B-41F3-A7A7-7BD52FDED86C}.Release|Win32.Build.0 = Release|Win32
+		{C27B25C0-66DD-44BA-BF64-A068A11157F5}.Debug|Win32.ActiveCfg = Debug|Win32
+		{C27B25C0-66DD-44BA-BF64-A068A11157F5}.Debug|Win32.Build.0 = Debug|Win32
+		{C27B25C0-66DD-44BA-BF64-A068A11157F5}.Release|Win32.ActiveCfg = Release|Win32
+		{C27B25C0-66DD-44BA-BF64-A068A11157F5}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
