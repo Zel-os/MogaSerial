@@ -30,10 +30,6 @@ Revision History:
 #define new DEBUG_NEW
 #endif
 
-static UINT BASED_CODE indicators[] =
-{
-	IDS_STATUSBAR
-};
 
 
 //---------------------------------------------------------------------------
@@ -97,25 +93,29 @@ BOOL CMogaSerialDlg::OnInitDialog()
 
 	// Sync visual styles, mfcbuttons look old otherwise
 	CMFCVisualManager::SetDefaultManager(RUNTIME_CLASS(CMFCVisualManagerWindows));
-
-	// Add a status bar on the bottom of the dialog window
-	//m_bar.Create(this);
-	//m_bar.SetIndicators(indicators,2);
-	//RepositionBars(AFX_IDW_CONTROLBAR_FIRST, AFX_IDW_CONTROLBAR_LAST, IDS_STATUSBAR);
+	c_Output.SetMargins(1,1);
 
 	//Create the ToolTip control
 	InitToolTips();
-
-	// populate listbox vaules, set defaults
-	c_Output.SetMargins(1,1);
-	c_vJoyID.SetCurSel(0);
-	m_Moga.m_KeepGoing = false;
-	Moga_thread_running = false;
 
 	vJoyCheck();
 	if (vJoyOK)
 		UpdateBTList_Start(false);  // Get quick bluetooth device list from system cache
 
+	// populate listbox vaules, read and validate registry defaults
+	int a,b,c,d;
+	swscanf_s(DefaultRegString,_T("%d,%d,%d,%d"),&a,&b,&c,&d);
+	if (a < 0 || a >= c_BTList.GetCount())	a = 0;
+	if (b < 0 || b >= c_vJoyID.GetCount())	b = 0;
+	if (c < 0 || c > 2)						c = 0;
+	if (d < 0 || d > 3)						d = 0;
+	c_BTList.SetCurSel(a);
+	c_vJoyID.SetCurSel(b);
+	m_iTriggerMode = c;
+	m_iCID = d;
+	UpdateData(false);
+	m_Moga.m_KeepGoing = false;
+	Moga_thread_running = false;
 
 	return true;  // return TRUE  unless you set the focus to a control
 }
@@ -164,53 +164,6 @@ BOOL CMogaSerialDlg::PreTranslateMessage(MSG* pMsg)
 	 if (pMsg->wParam == VK_ESCAPE)  // Intercept close-on-escape
 		return true;
 
-/*	static int xClick;
-    static int yClick;
-	static bool clicked = false;
-	RECT rcScreen,rcWindow;
-    switch (pMsg->message)
-    {
-        //...other handlers...
-
-	case WM_LBUTTONDOWN:
-            //Restrict mouse input to current window
-		//SetCapture();
-		clicked = true;
-		GetClipCursor(&rcScreen);
-            //Get the click position
-	    xClick = pMsg->pt.x;
-	    yClick = pMsg->pt.y;
-	    break;
-
-	case WM_LBUTTONUP:
-            //Window no longer requires all mouse input
-		//ReleaseCapture();
-		clicked = false;
-		ClipCursor(&rcScreen);
-	    break;
-
-	case WM_MOUSEMOVE:
-	    if (clicked)  //Check if this window has mouse input
-	    {
-                //Get the window's screen coordinates
-			GetWindowRect(&rcWindow);
-			ClipCursor(&rcWindow);
-                //Get the current mouse coordinates
-			int xMouse = pMsg->pt.x;
-			int yMouse = pMsg->pt.y;
-
-                //Calculate the new window coordinates
-			int xWindow = rcWindow.left + xMouse - xClick;
-			int yWindow = rcWindow.top + yMouse - yClick;
-		    xClick = xMouse;
-		    yClick = yMouse;
-	
-                //Set the window's new screen position (don't resize or change z-order)
-			SetWindowPos(NULL,xWindow,yWindow,0,0,SWP_NOSIZE|SWP_NOZORDER);
-	    }
-	    break;
-    }
-*/
      return CDialog::PreTranslateMessage(pMsg);
 }
 
@@ -374,21 +327,22 @@ void CMogaSerialDlg::OnBnClickedStopGo()
 // Lock relevant controls, populate the config values, then spawn the worker thread
 void CMogaSerialDlg::MogaHandler_Start()
 {
-	//CString s;
+	int BTList_idx;
 	m_Moga.m_KeepGoing = true;
 	Moga_thread_running = true;
 	Moga_first_connect = true;
 	LockControls();
+
 	UpdateData(true);
+	BTList_idx = c_BTList.GetItemData(c_BTList.GetCurSel());
 	m_Moga.m_hGUI = this->m_hWnd;
 	m_Moga.m_vJoyInt = c_vJoyID.GetCurSel() + 1;
-	m_Moga.m_Addr = BTList_info[c_BTList.GetItemData(c_BTList.GetCurSel())].addr;
-	m_Moga.m_CID = m_iCID + 1;
+	m_Moga.m_Addr = BTList_info[BTList_idx].addr;
 	m_Moga.m_TriggerMode = m_iTriggerMode;
-	AfxBeginThread(MogaHandler_Launch, &m_Moga);
+	m_Moga.m_CID = m_iCID + 1;
+	DefaultRegString.Format(_T("%d,%d,%d,%d"), BTList_idx, c_vJoyID.GetCurSel(), m_iTriggerMode, m_iCID);
 
-	//s.Format(_T("Connecting to %s...\r\n"),BTList_info[c_BTList.GetItemData(c_BTList.GetCurSel())].name);
-	//c_Output.SetWindowText(s);
+	AfxBeginThread(MogaHandler_Launch, &m_Moga);
 }
 
 
