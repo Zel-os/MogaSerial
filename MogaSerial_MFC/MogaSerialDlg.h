@@ -71,6 +71,7 @@ private:
 	static UINT BTAddressDiscovery(LPVOID pParam);
 
 public:
+	void StopMogaThread();
 	CString DefaultRegString;
 	CComboBox c_BTList;
 	CMFCButton c_BTRefresh;

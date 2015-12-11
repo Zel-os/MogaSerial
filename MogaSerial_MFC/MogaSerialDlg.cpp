@@ -372,6 +372,21 @@ LRESULT CMogaSerialDlg::MogaHandler_Done(WPARAM wParam, LPARAM lParam)
 }
 
 
+// Give time for the Moga control thread to finish after the main dialog is closed.
+void CMogaSerialDlg::StopMogaThread()
+{
+//	MSG uMsg;
+	m_Moga.m_KeepGoing = false;
+// The following check wasn't working.  Sleeping two seconds works just as well.
+//	while (Moga_thread_running)
+//	{
+//		if (PeekMessage(&uMsg, this->m_hWnd, 0, 0, PM_REMOVE) > 0)
+//			DispatchMessage(&uMsg);
+//	}
+	Sleep(2500);
+}
+
+
 // Moga message handler callback.
 LRESULT CMogaSerialDlg::MogaHandler_Msg(WPARAM wParam, LPARAM lParam)
 {

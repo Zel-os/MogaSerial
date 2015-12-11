@@ -73,6 +73,8 @@ BOOL CMogaSerialApp::InitInstance()
 	INT_PTR nResponse = dlg.DoModal();
 
 	WriteProfileString(_T("LastRun"),_T("Settings"),dlg.DefaultRegString);
+	if (dlg.Moga_thread_running)
+		dlg.StopMogaThread();
 
 	// Delete the shell manager created above.
 	if (pShellManager != NULL)
