@@ -276,15 +276,19 @@ void CMogaSerialMain::vJoyUpdate()
 	vJoyData.wAxisYRot = (0xff - FixAxis(m_State[5])) * 128;  //invert
 
 	switch (m_TriggerMode) {
-	case 0:
+	case 0:  // Independant axis triggers
 		vJoyData.wAxisZ = m_State[6] * 128;
 		vJoyData.wAxisZRot = m_State[7] * 128;
 		break;
-	case 1:
+	case 1:  // Combined axis triggers
+		vJoyData.wAxisZ = 0x4000 + (m_State[6] * 64) - (m_State[7] * 64);
+		vJoyData.wAxisZRot = 0x4000;
+		break;
+	case 2:  // Triggers as buttons
 		vJoyData.lButtons |= (((m_State[1] >> 4) & 1) << 10);  // L2
 		vJoyData.lButtons |= (((m_State[1] >> 5) & 1) << 11);  // R2
-		vJoyData.wAxisZ = 0;
-		vJoyData.wAxisZRot = 0;
+		vJoyData.wAxisZ = 0x4000;;
+		vJoyData.wAxisZRot = 0x4000;;
 		break;
 	}
 		
@@ -308,10 +312,11 @@ int CMogaSerialMain::Moga_Main()
 
 	switch (m_TriggerMode) {
 	case 0:
+	case 1:
 		poll_code = 69;
 		listen_code = 70;
 		break;
-	case 1:
+	case 2:
 		poll_code = 65;
 		listen_code = 68;
 		break;

@@ -76,7 +76,7 @@ public:
 	CComboBox c_vJoyID;
 	CButton c_CID1, c_CID2, c_CID3, c_CID4;
 	int m_iCID;
-	CButton c_TModeA, c_TModeB;
+	CButton c_TModeA, c_TModeB, c_TModeC;
 	int m_iTriggerMode;
 	CEdit c_Output;
 	CMFCButton c_StopGo;

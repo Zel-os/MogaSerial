@@ -59,6 +59,7 @@ void CMogaSerialDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_RADIO4, c_CID4);
 	DDX_Control(pDX, IDC_RADIOA, c_TModeA);
 	DDX_Control(pDX, IDC_RADIOB, c_TModeB);
+	DDX_Control(pDX, IDC_RADIOC, c_TModeC);
 	DDX_Radio(pDX, IDC_RADIO1, m_iCID);
 	DDX_Radio(pDX, IDC_RADIOA, m_iTriggerMode);
 	DDX_Control(pDX, IDC_OUTPUT, c_Output);
@@ -221,6 +222,7 @@ void CMogaSerialDlg::InitToolTips()
 		// Add tool tips to the controls, either by hard coded string 
 		// or using the string table resource
 		//m_BTFrame.ModifyStyle(0, SS_NOTIFY);
+		m_ToolTip.SetMaxTipWidth(SHRT_MAX);
 		m_ToolTip.AddTool( GetDlgItem(IDC_BTLIST), IDS_BT_TOOLTIP);
 		m_ToolTip.AddTool( GetDlgItem(IDC_BTREFRESH), IDS_BTR_TOOLTIP);
 		m_ToolTip.AddTool( GetDlgItem(IDC_VJOYID), IDS_VID_TOOLTIP);
@@ -230,6 +232,7 @@ void CMogaSerialDlg::InitToolTips()
 		m_ToolTip.AddTool( GetDlgItem(IDC_RADIO4), IDS_CID_TOOLTIP);
 		m_ToolTip.AddTool( GetDlgItem(IDC_RADIOA), IDS_TA_TOOLTIP);
 		m_ToolTip.AddTool( GetDlgItem(IDC_RADIOB), IDS_TB_TOOLTIP);
+		m_ToolTip.AddTool( GetDlgItem(IDC_RADIOC), IDS_TC_TOOLTIP);
 		m_ToolTip.AddTool( GetDlgItem(IDC_STOPGO), IDS_GO_TOOLTIP);
 		m_ToolTip.AddTool( GetDlgItem(IDC_ABOUT), IDS_ABT_TOOLTIP);
 		m_ToolTip.AddTool( GetDlgItem(IDC_DEBUG), IDS_DBG_TOOLTIP);
@@ -302,6 +305,7 @@ void CMogaSerialDlg::LockControls()
 	c_CID4.EnableWindow(options);
 	c_TModeA.EnableWindow(options);
 	c_TModeB.EnableWindow(options);
+	c_TModeC.EnableWindow(options);
 	c_StopGo.EnableWindow(stopgo);
 }
 
@@ -334,7 +338,7 @@ void CMogaSerialDlg::OnBnClickedDebug()
 	if (!m_Moga.m_Debug)
 	{
 		m_Moga.m_Debug = true;
-		c_Debug.SetImage(IDB_DEBUGON);
+		c_Debug.SetImage(IDB_DEBUG2);
 	}
 	else
 	{
