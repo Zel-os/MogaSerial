@@ -33,15 +33,6 @@
     <None Include="res\mogaL36px.png">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="res\dbg.png">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="res\abt_.png">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="res\dbg_.png">
-      <Filter>Resource Files</Filter>
-    </None>
     <None Include="res\597001.bmp">
       <Filter>Resource Files</Filter>
     </None>
@@ -49,9 +40,6 @@
       <Filter>Resource Files</Filter>
     </None>
     <None Include="res\debug.png">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="res\debug2.png">
       <Filter>Resource Files</Filter>
     </None>
     <None Include="res\debugon.png">

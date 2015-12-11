@@ -101,12 +101,8 @@
   <ItemGroup>
     <None Include="res\597001.bmp" />
     <None Include="res\about.png" />
-    <None Include="res\abt_.png" />
     <None Include="res\banner.bmp" />
-    <None Include="res\dbg.png" />
-    <None Include="res\dbg_.png" />
     <None Include="res\debug.png" />
-    <None Include="res\debug2.png" />
     <None Include="res\debugon.png" />
     <None Include="res\moga.ico" />
     <None Include="res\moga36px.png" />
