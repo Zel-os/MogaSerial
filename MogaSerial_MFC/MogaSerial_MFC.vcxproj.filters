@@ -45,6 +45,18 @@
     <None Include="res\597001.bmp">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="res\about.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="res\debug.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="res\debug2.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="res\debugon.png">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="MogaSerial.h">
