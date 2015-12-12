@@ -1,85 +1,75 @@
-<pre>
-------------------------------------------
-  Moga Serial to vJoy Interface, v 0.9.4 
-------------------------------------------
 
-The Moga line of controllers are neat pieces of kit, with one glaring issue.
-They don't work right in Windows!  No native driver means being forced to use
-generic HID mode, which unfortunately comes with a whole host of problems.
+## Moga Serial to vJoy Interface
 
-Connection issues aside, the Moga identifies the triggers via the HID codes
-AXIS_GAS and AXIS_BRAKE.  Windows DirectInput doesn't recognise these, and
-thusly ignores them, despite the controller actually reporting trigger values.
+The Moga line of controllers are neat pieces of kit, with one glaring issue.  They don't work right in Windows!  No native driver means being forced to use generic HID mode, which unfortunately comes with a whole host of problems.
 
-Fortunately the vJoy driver project gives an alternative.  This tool connects
-to the Moga directly via its mode A serial interface, then feeds controller
-data to the vJoy driver through the provided api.
+Connection issues aside, the Moga identifies the triggers via the HID codes `AXIS_GAS` and `AXIS_BRAKE`.  Windows DirectInput doesn't recognize these, and thusly ignores them, despite the controller actually reporting trigger values.
+
+Fortunately the vJoy driver project gives an alternative.  MogaSerial connects to the Moga controller directly via its mode A serial interface, then feeds input data to the vJoy driver through its provided api.
+
+-----
+### Download
+
+The latest build of MogaSerial is 1.3.0, released Dec 11, 2015.  
+![>](http://i64.tinypic.com/voad5u.png) [MogaSerial-v130.zip](https://github.com/Zel-os/MogaSerial/releases/download/v1.3.0/MogaSerial-v130.zip) - x86 for Windows 7, 8, and 10 
 
 
-SETUP
-=====
-Both of the following need to be installed:
- - Visual C++ Redistributable Packages for Visual Studio 2013 
- - vJoy 2.0.5 or above (vjoystick.sourceforge.net)
+-----
+### Setup
 
-Run the vJoyConf configuration tool and set controller 1 as follows:
- - Axes: X Y Z Rx Ry Rz    - Buttons: 10    - POV Hat: 1 Continuous
+Installing vJoy 2.1.6 (or later) is required. (<http://vjoystick.sourceforge.net/>)
 
-Pair the Moga controller with the computer in MODE A.  Pin is 1234, if needed.
+> It's also worth installing the [Xbox 360 Controller Emulator](http://www.x360ce.com/) for XInput support, at least until vJoy can support XInput natively.
 
+Run the vJoyConf configuration tool and set a controller as follows:
 
-USAGE
-=====
-Make sure bluetooth is enabled, and ensure the Moga is switched to MODE A.
-Then launch MogaSerial.exe, and select the bluetooth name that matches the
-mode A pairing for the controller.  After a couple seconds, it should connect
-and begin feeding data to the vJoy driver.
+ - Axes: `X` `Y` `Z` `Rx` `Ry` `Rz`
+ - Buttons: `12`
+ - POV Hat: `1 Continuous`
 
-If the Moga disconnects due to sleeping, being shut off, or a bluetooth error,
-the tool will reset the connection, wait a few seconds, and try to reconnect.
-To quit, just close the window, or focus it and hit ctrl-c.
+> If you will only use the triggers as axes, buttons can be 10.  
+> If you will only use the triggers as buttons, Z and Rz can be omitted.
+
+The Moga controller doesn't need to be paired with Windows, but if so will appear on the Bluetooth device list by default.  Pin is `1234`, if needed.
 
 
-NOTES
-=====
-vJoy gives a warning when using the 2.0.5 dll with newer driver versions.
-vJoy outright fails when using it with older driver versions.  If you've got
-the 2.1.6 driver installed, you can get rid of the warning message by replacing
-the vJoyInterface.dll with the updated version inside the vJoy installation
-directory.  The older dll still appears to work fine however.
+-----
+#### Usage
 
-The Moga responds to polling at approximately 100 updates per second.
+Make sure Bluetooth is enabled, and ensure the Moga is switched to **MODE A**.
 
-Curiously, there seems to be no way to get battery status through the serial
-interface.  It's reported as a byte code when in HID mode B, but not here.
+Then just select your controller from the Bluetooth drop-down and click the Moga button in the lower-right.  After a couple seconds, it will connect and begin feeding data to the vJoy driver.  If the Moga is not in the list, click the orange refresh button to re-scan for local Bluetooth devices, and after a few seconds it ought to appear.
+
+Trigger mode determines how Windows will see `L2` and `R2`, either as the `Z` and `Rz` axis, as a combined `Z` axis, or as buttons `11` and `12`.
+
+If the Moga disconnects due to sleeping, being shut off, or a Bluetooth error, the program will reset the connection, wait a few seconds, and try to reconnect.  Click the Moga button again to stop the controller interface.
 
 
-TO-DO
-=====
-A proper GUI or system tray dock would be nice to have.  Support for more than
-one controller would be nice, too.  A switch to choose which controller number
-the Moga lights up when connected would just be frivolous fun.
+-----
+#### Notes
+
+- The Moga responds to polling at approximately 100 updates per second.
+
+- Curiously, there seems to be no way to get battery status through the serial interface.  It's reported as a byte code when in HID mode B, but not here.
+
+- I only own a Moga Power Pro for testing, but MogaSerial ought to work with all Moga-brand controllers.  From what I can tell, the serial communication protocol hasn't changed between models.
 
 
-== Changes from 0.9.3
---- Fixed controller state not being properly zero'd on init and disconnect.
-== Changes from 0.9.2
---- vJoy device id selection routine - added by badfontkeming@gmail.com
-== Changes from 0.9.0
---- Listen mode seems to be working consistently now.  Reduced active polling to once
-     every two seconds to check for disconnects.  This should reduce bluetooth network
-     traffic and prevent any chance of missed inputs.
---- General code cleanups.
+------------------------
+##### Changes
+
+* 1.3.0
+  * Program settings are now stored in the system registry under HKCU\Software\MogaSerial.
+  * Added 'Combined Axes' option for the trigger mode.  This mimics how the XBox360 controller behaves under DirectInput.
+* 1.2.0
+  * Debug switch added to display raw controller output. 
+  * First public release of the MFC GUI version of MogaSerial.
 
 ------------------------
 
-Thanks to badfontkeming@gmail.com for first making a similar tool that works
-with vJoy and the Moga in HID mode B, and inspiring me to finish this project
-here.  Thanks as well to the ZeeMouse author for showing
-that a serial mode A connection ought to be straightforward.
-http://ngemu.com/threads/moga-pro-power-triggers-not-detected.170401/
+Thanks to badfontkeming@gmail.com for first making a similar tool that works with vJoy and the Moga in HID mode B, and inspiring me to finish this project here.  Thanks as well to the ZeeMouse author for showing that a serial mode A connection ought to be straightforward.  
+<http://ngemu.com/threads/moga-pro-power-triggers-not-detected.170401/>
 
 
-Moga controllers are (c) PowerA and MogaAnywhere.com
+Moga controllers are (c) PowerA and MogaAnywhere.com  
 This application is (c) Jake Montgomery - jmont@sonic.net
-</pre>
