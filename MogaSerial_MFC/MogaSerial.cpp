@@ -48,7 +48,8 @@ BOOL CMogaSerialApp::InitInstance()
 
 	CWinApp::InitInstance();
 
-	if (!AfxSocketInit())
+	WSADATA wsd;
+	if (WSAStartup(MAKEWORD(2,2), &wsd) != 0)
 	{
 		AfxMessageBox(IDP_SOCKETS_INIT_FAILED);
 		return FALSE;
@@ -82,6 +83,7 @@ BOOL CMogaSerialApp::InitInstance()
 		delete pShellManager;
 	}
 
+	WSACleanup();
 	// Since the dialog has been closed, return FALSE so that we exit the
 	//  application, rather than start the application's message pump.
 	return FALSE;

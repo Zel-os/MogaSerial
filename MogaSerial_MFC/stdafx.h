@@ -37,12 +37,10 @@
 #include <afxcontrolbars.h>     // MFC support for ribbons and control bars
 
 
-#include <afxsock.h>            // MFC socket extensions
-
 #include <stdio.h>
 #include <stdint.h>
 //#include <signal.h>
-//#include <winsock2.h>
+#include <winsock2.h>
 #include <ws2bth.h>
 #include "vJoy\public.h"
 #include "vJoy\vjoyinterface.h"
