@@ -67,7 +67,7 @@ int CMogaSerialMain::MogaSendMsg(unsigned char code)
 
 
 // Received messages are a similar format to the sent messages:
-//   byte 0 - 0x71 identifier 
+//   byte 0 - 0x7a identifier 
 //   byte 1 - length, 12 or 14
 //   byte 2 - message code
 //   byte 3 - controller id
@@ -78,24 +78,26 @@ int CMogaSerialMain::MogaSendMsg(unsigned char code)
 int CMogaSerialMain::MogaGetMsg()
 {
 	int retVal;
-	uint8_t i, chksum = 0, recvmsg_len;
+	uint8_t i, chksum = 0;//, recvmsg_len;
 	unsigned char recvbuf[RECVBUF_LEN];
 
-	// Returned data can be 12 or 14 bytes long, so the message length needs to be checked before a full read.
-	retVal = recv(m_Socket, (char *)recvbuf, 2, 0);
-	if (retVal == 2)
-	{
-		recvmsg_len = recvbuf[1];
-		retVal = recv(m_Socket, (char *)recvbuf+2, recvmsg_len-2, 0);
-	}
-	else   
-		return -1;    // Recv socket timeout
-	for (i = 0; i < recvmsg_len-1; i++)
+	// Returned data can be 12 or 14 bytes long, so the message length should be checked before a full read.
+	// I dislike making assumptions on socket reads, but in the interests of streamlining things as much as possible
+	// to maybe cut down on lag, and since we do know what the length will be, I'll hardcode the recv message length.
+	retVal = recv(m_Socket, (char *)recvbuf, recv_msg_len, 0);
+//	if (retVal == 2)
+//	{
+//		recvmsg_len = recvbuf[1];
+//		retVal = recv(m_Socket, (char *)recvbuf+2, recvmsg_len-2, 0);
+//	}
+//	else
+	if (retVal != recv_msg_len)
+		return -1;    // Recv socket error or timeout
+	for (i = 0; i < recv_msg_len-1; i++)
 		chksum = recvbuf[i] ^ chksum;
-	if (recvbuf[0] != 0x7a || recvbuf[recvmsg_len-1] != chksum)
+	if (recvbuf[0] != 0x7a || recvbuf[recv_msg_len-1] != chksum)
 		return -2;    // Received bad data
 	memcpy(m_State, recvbuf+4, MOGABUF_LEN);
-	//if (recvmsg_len == 12) { pMogaData->State[6] = 0;  pMogaData->State[7] = 0; }
 	if (m_Debug)
 		PrintBuf(recvbuf);
 	return 1;
@@ -225,6 +227,7 @@ int CMogaSerialMain::vJoyAttach()
 	}
 	//printf("vJoy %S enabled, attached to device %d.\n\n", (wchar_t *)GetvJoySerialNumberString(), m_vJoyInt);
 	::PostMessage(m_hGUI, WM_MOGAHANDLER_MSG, IDS_VJOY_SUCCESS, 0);
+	Sleep(500);
 	memset(m_State, 0, MOGABUF_LEN);
 	vJoyUpdate();
 
@@ -306,6 +309,9 @@ int CMogaSerialMain::Moga_Main()
 {
 	int retVal;
 
+	// Boosting thread priority by 2 to combat input lag on some systems.
+	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
+
 	retVal = vJoyAttach();
 	if (retVal < 1)
 		return(retVal);
@@ -315,10 +321,12 @@ int CMogaSerialMain::Moga_Main()
 	case 1:
 		poll_code = 69;
 		listen_code = 70;
+		recv_msg_len = 14;
 		break;
 	case 2:
 		poll_code = 65;
 		listen_code = 68;
+		recv_msg_len = 12;
 		break;
 	}
 	while(m_KeepGoing)

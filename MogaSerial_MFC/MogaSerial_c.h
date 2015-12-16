@@ -33,6 +33,7 @@ protected:
 	unsigned char   m_State[MOGABUF_LEN];
 	unsigned char	poll_code;
 	unsigned char	listen_code;
+	unsigned char	recv_msg_len;
 
 public:
 	int		Moga_Main();
