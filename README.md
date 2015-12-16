@@ -10,8 +10,8 @@ Fortunately the vJoy driver project gives an alternative.  MogaSerial connects t
 -----
 ### Download
 
-The latest build of MogaSerial is 1.3.0, released Dec 11, 2015.  
-![>](http://i64.tinypic.com/voad5u.png) [MogaSerial-v130.zip](https://github.com/Zel-os/MogaSerial/releases/download/v1.3.0/MogaSerial-v130.zip) - x86 for Windows 7, 8, and 10 
+The latest build of MogaSerial is 1.3.2, released Dec 15, 2015.  
+![>](http://i64.tinypic.com/voad5u.png) [MogaSerial-v132.zip](https://github.com/Zel-os/MogaSerial/releases/download/v1.3.2/MogaSerial-v132.zip) - x86 for Windows 7, 8, and 10 
 
 
 -----
@@ -58,6 +58,8 @@ If the Moga disconnects due to sleeping, being shut off, or a Bluetooth error, t
 ------------------------
 ##### Changes
 
+* 1.3.2
+  * Tweaks to try and address the reported input lag problem.  
 * 1.3.0
   * Program settings are now stored in the system registry under HKCU\Software\MogaSerial.
   * Added 'Combined Axes' option for the trigger mode.  This mimics how the XBox360 controller behaves under DirectInput.
