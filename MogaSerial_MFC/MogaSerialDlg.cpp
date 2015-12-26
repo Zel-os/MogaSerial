@@ -115,6 +115,7 @@ BOOL CMogaSerialDlg::OnInitDialog()
 	m_iCID = d;
 	UpdateData(false);
 	m_Moga.m_KeepGoing = false;
+	m_Moga.m_Debug = false;
 	Moga_thread_running = false;
 
 	return true;  // return TRUE  unless you set the focus to a control
