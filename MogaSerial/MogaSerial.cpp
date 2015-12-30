@@ -373,6 +373,9 @@ int main(int argc, char **argv)
 	int retVal;
 	MOGA_DATA MogaData = MOGA_NULL;
 
+	// Boosting thread priority by 2 to combat input lag on some systems.
+	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
+
 	signal(SIGINT, intHandler);
 
 	printf("-------------------------------------------\n");
