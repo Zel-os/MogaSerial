@@ -9,6 +9,7 @@
 
 
 #define		WM_BT_DISCOVERY_DONE	(WM_USER + 101)
+#define		MYWM_NOTIFYICON			(WM_USER + 201)
 
 typedef		ULONGLONG		BT_ADDR;
 struct BLUETOOTH_INFO{
@@ -40,8 +41,8 @@ public:
 // Implementation
 protected:
 	HICON m_hIcon;
+	NOTIFYICONDATA m_trayIcon;
 	CToolTipCtrl m_ToolTip;
-	CStatusBar m_bar;
 	CMogaSerialMain m_Moga;
 
 	// Generated message map functions
@@ -56,8 +57,13 @@ private:
 	afx_msg void OnBnClickedStopGo();
 	afx_msg void OnBnClickedAbout();
 	afx_msg void OnBnClickedDebug();
+	afx_msg LRESULT onTrayNotify(WPARAM, LPARAM);
+	afx_msg LRESULT OnTaskBarCreated(WPARAM, LPARAM);
+	afx_msg void OnSysCommand(UINT, LPARAM);
+	afx_msg void OnDestroy();
 	// Custom functions
 	void InitToolTips();
+	void InitSysTrayIcon();
 	void vJoyCheck();
 	void LockControls();
 	void UnlockStopGOButton();

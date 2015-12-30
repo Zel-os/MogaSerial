@@ -31,6 +31,7 @@ Revision History:
 #endif
 
 
+const UINT WM_TASKBARCREATED = ::RegisterWindowMessage(_T("TaskbarCreated"));
 
 //---------------------------------------------------------------------------
 // CMogaSerialDlg - Constructor and data mapping
@@ -70,10 +71,14 @@ BEGIN_MESSAGE_MAP(CMogaSerialDlg, CDialogEx)
 	ON_MESSAGE(WM_BT_DISCOVERY_DONE, UpdateBTList_Done)
 	ON_MESSAGE(WM_MOGAHANDLER_DONE, MogaHandler_Done)
 	ON_MESSAGE(WM_MOGAHANDLER_MSG, MogaHandler_Msg)
+	ON_MESSAGE(MYWM_NOTIFYICON, onTrayNotify)
+	ON_REGISTERED_MESSAGE(WM_TASKBARCREATED, OnTaskBarCreated)
 	ON_BN_CLICKED(IDC_BTREFRESH, &CMogaSerialDlg::OnBnClickedBtrefresh)
 	ON_BN_CLICKED(IDC_STOPGO, &CMogaSerialDlg::OnBnClickedStopGo)
 	ON_BN_CLICKED(IDC_DEBUG, &CMogaSerialDlg::OnBnClickedDebug)
 	ON_BN_CLICKED(IDC_ABOUT, &CMogaSerialDlg::OnBnClickedAbout)
+	ON_WM_DESTROY()
+	ON_WM_SYSCOMMAND()
 END_MESSAGE_MAP()
 
 
@@ -118,6 +123,8 @@ BOOL CMogaSerialDlg::OnInitDialog()
 	m_Moga.m_Debug = false;
 	Moga_thread_running = false;
 
+	InitSysTrayIcon();
+  
 	return true;  // return TRUE  unless you set the focus to a control
 }
 
@@ -196,6 +203,19 @@ void CMogaSerialDlg::InitToolTips()
 }
 
 
+void CMogaSerialDlg::InitSysTrayIcon()
+{
+	m_trayIcon.cbSize = sizeof(NOTIFYICONDATA);
+	m_trayIcon.hWnd = this->GetSafeHwnd();
+	m_trayIcon.uID = IDI_MOGA;
+	m_trayIcon.uCallbackMessage = MYWM_NOTIFYICON;
+	m_trayIcon.uFlags = NIF_MESSAGE|NIF_ICON|NIF_TIP; 
+	m_trayIcon.hIcon = LoadIcon(AfxGetInstanceHandle(), MAKEINTRESOURCE (IDI_MOGA));
+	lstrcpyn(m_trayIcon.szTip, _T("MogaSerial"), sizeof(m_trayIcon.szTip));
+	Shell_NotifyIcon(NIM_ADD, &m_trayIcon);    
+}
+
+
 // Ensure the vJoy driver exists, and compare versions.
 void CMogaSerialDlg::vJoyCheck()
 {
@@ -271,6 +291,47 @@ void CMogaSerialDlg::UnlockStopGOButton()
 	LockControls();
 }
 
+
+LRESULT CMogaSerialDlg::onTrayNotify(WPARAM wParam,LPARAM lParam)
+{
+    switch ((UINT) lParam) 
+	{ 
+	case WM_LBUTTONUP:
+    case WM_RBUTTONUP:
+		ShowWindow(SW_RESTORE);
+		break;
+    } 
+    return TRUE;
+}
+
+
+// Show/hide the application entry on the task bar
+void CMogaSerialDlg::OnSysCommand(UINT nID, LPARAM lParam)
+{
+	switch(nID & 0xFFF0)
+	{
+    case SC_MINIMIZE:
+		ShowWindow(SW_HIDE);
+		break;
+	default:
+		CDialogEx::OnSysCommand(nID, lParam);
+	}
+}
+
+
+// Replace the systray icon if Explorer is restarted
+ LRESULT CMogaSerialDlg::OnTaskBarCreated(WPARAM wp, LPARAM lp)
+ {
+     InitSysTrayIcon();
+     return 0;
+ }
+
+
+void CMogaSerialDlg::OnDestroy()
+{
+	Shell_NotifyIcon(NIM_DELETE,&m_trayIcon);
+	CDialogEx::OnDestroy();
+}
 
 
 // Bluetooth refresh button was clicked.
