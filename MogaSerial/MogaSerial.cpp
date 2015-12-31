@@ -21,6 +21,8 @@ Notes:
 	Things aren't very OO friendly yet.  Could matter if/when threaded and GUI-enabled.
 
 Revision History:
+	x.9.6 - Testing the SCP driver as a replacement for vJoy.
+	0.9.5 - Boosted thread priority to try and resolve latency issues
 	0.9.4 - Fixed controller state not being properly zero'd on init and disconnect.
 	0.9.3 - vJoy device id selection routine - added by badfontkeming@gmail.com
 	0.9.2 - Switched to passive listening mode for controller updates.
@@ -96,7 +98,7 @@ BOOL FindMogaAddress(MOGA_DATA *pMogaData)
 		BTSA_size = sizeof(BTStrAddr);
 		ZeroMemory(BTStrAddr, BTSA_size);
 		WSAAddressToString(pwsaQuery->lpcsaBuffer->RemoteAddr.lpSockaddr, sizeof(SOCKADDR_BTH), NULL, (LPWSTR)BTStrAddr, &BTSA_size);
-		printf("%2d - %ls\n", ++i, pwsaQuery->lpszServiceInstanceName);
+		printf("%2d - %ls  %ls\n", ++i, pwsaQuery->lpszServiceInstanceName, BTStrAddr);
 		btAddrList[i] = ((SOCKADDR_BTH *)pwsaQuery->lpcsaBuffer->RemoteAddr.lpSockaddr)->btAddr;
 	}
 
@@ -159,25 +161,26 @@ int MogaSendMsg(MOGA_DATA *pMogaData, unsigned char code)
 int MogaGetMsg(MOGA_DATA *pMogaData)
 {
 	int retVal;
-	uint8_t i, chksum = 0, recvmsg_len;
+	uint8_t i, chksum = 0, recvmsg_len = 14;
 	unsigned char recvbuf[RECVBUF_LEN];
 
-	// Returned data can be 12 or 14 bytes long, so the message length needs to be checked before a full read.
-	// We're never sending the codes to get a 12 byte response, but I'm leaving the check in anyway.
-	retVal = recv(pMogaData->Socket, (char *)recvbuf, 2, 0);
-	if (retVal == 2)
-	{
-		recvmsg_len = recvbuf[1];
-		retVal = recv(pMogaData->Socket, (char *)recvbuf+2, recvmsg_len-2, 0);
-	}
-	else   
-		return -1;    // Recv socket timeout
+	// Returned data can be 12 or 14 bytes long, so the message length should be checked before a full read.
+	// I dislike making assumptions on socket reads, but in the interests of streamlining things as much as possible
+	// to maybe cut down on lag, and since we do know what the length will be, I'll hardcode the recv message length.
+	retVal = recv(pMogaData->Socket, (char *)recvbuf, recvmsg_len, 0);
+//	if (retVal == 2)
+//	{
+//		recvmsg_len = recvbuf[1];
+//		retVal = recv(pMogaData->Socket, (char *)recvbuf+2, recvmsg_len-2, 0);
+//	}
+//	else   
+	if (retVal != recvmsg_len)
+		return -1;    // Recv socket error or timeout
 	for (i = 0; i < recvmsg_len-1; i++)
 		chksum = recvbuf[i] ^ chksum;
 	if (recvbuf[0] != 0x7a || recvbuf[recvmsg_len-1] != chksum)
 		return -2;    // Received bad data
 	memcpy(pMogaData->State, recvbuf+4, MOGABUF_LEN);
-	//if (recvmsg_len == 12) { pMogaData->State[6] = 0;  pMogaData->State[7] = 0; }
 	//PrintBuf(recvbuf);
 	return 1;
 }
@@ -229,7 +232,8 @@ void MogaReset(MOGA_DATA *pMogaData)
 	closesocket(pMogaData->Socket);
 	pMogaData->Socket = INVALID_SOCKET;
 	memset(pMogaData->State, 0, MOGABUF_LEN);
-	vJoyUpdate(pMogaData);
+	//vJoyUpdate(pMogaData);
+	SCP_Update(pMogaData);
 	if (KeepGoing)
 	{
 		printf("Reconnecting in 3 seconds.\n");
@@ -261,14 +265,15 @@ void MogaListener(MOGA_DATA *pMogaData)
 			else
 				MogaSendMsg(pMogaData, 70);  // Re-enable listen mode if the first try failed.
 		}
-		vJoyUpdate(pMogaData);
+		//vJoyUpdate(pMogaData);
+		SCP_Update(pMogaData);
 	}
 }
 
 
 // The new 2.1.6 vJoy dll won't work with older versions of vJoy drivers.
 // Fortunately the old 2.0.5 vJoy dll works with new versions, despite giving an error message.
-int vJoySetup(MOGA_DATA *pMogaData)
+/*int vJoySetup(MOGA_DATA *pMogaData)
 {
 	WORD VerDll, VerDrv;
 	if (!vJoyEnabled())
@@ -309,7 +314,7 @@ int vJoySetup(MOGA_DATA *pMogaData)
 	vJoyUpdate(pMogaData);
 
 	return 1;
-}
+}*/
 
 
 // hid default - A=1 B=2 X=3 Y=4 L1=5 R1=6 SEL=7 START=8 L3=9 R3=10
@@ -319,7 +324,7 @@ int vJoySetup(MOGA_DATA *pMogaData)
 // Triggers are reported as both buttons and axis.
 // Thumbsticks report 00 at neutral, need to be corrected.
 // Buttons are so, so scrambled from what's "expected".
-void vJoyUpdate(MOGA_DATA *pMogaData)
+/*void vJoyUpdate(MOGA_DATA *pMogaData)
 {
 	JOYSTICK_POSITION vJoyData;
 
@@ -358,12 +363,155 @@ void vJoyUpdate(MOGA_DATA *pMogaData)
 	vJoyData.wAxisZRot = pMogaData->State[7] * 128;
 		
 	UpdateVJD(pMogaData->vJoyInt, (PVOID)&vJoyData);
+}*/
+
+
+// Get handle to SCP virtual device driver
+// Most of this is extracted from working source code in other projects.  Unfortunately with no
+// documentation for SCP, I'm not sure if there's any better way of doing this.
+int SCP_Setup(MOGA_DATA *pMogaData)
+{
+	// {F679F562-3164-42CE-A4DB-E7DDBE723909} - GUID for main SCP device interface
+	GUID Target = { 0xF679F562, 0x3164, 0x42CE, {0xA4, 0xDB, 0xE7, 0xDD, 0xBE, 0x72, 0x39, 0x09}};
+	wchar_t Path[256];
+	char *buf;
+	DWORD bufferSize;
+	HDEVINFO deviceInfoSet;
+	SP_DEVICE_INTERFACE_DATA DeviceInterfaceData;
+	PSP_DEVICE_INTERFACE_DETAIL_DATA pDeviceDetailData;
+	SP_DEVINFO_DATA DevInfoData;
+	int retVal = 1;
+
+	DeviceInterfaceData.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
+	DevInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
+
+	deviceInfoSet = SetupDiGetClassDevs(&Target, 0, 0, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
+	if (SetupDiEnumDeviceInterfaces(deviceInfoSet, 0, &Target, 0, &DeviceInterfaceData))
+	{
+		SetupDiGetDeviceInterfaceDetail(deviceInfoSet, &DeviceInterfaceData, 0, 0, &bufferSize, &DevInfoData);
+
+		buf = (char *)malloc(sizeof(char) * bufferSize);
+		pDeviceDetailData = (PSP_DEVICE_INTERFACE_DETAIL_DATA)buf;
+		pDeviceDetailData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
+
+		if (SetupDiGetDeviceInterfaceDetail(deviceInfoSet, &DeviceInterfaceData, pDeviceDetailData, bufferSize, &bufferSize, &DevInfoData))
+			wcscpy_s(Path, pDeviceDetailData->DevicePath);
+		else
+		{
+			printf("Error: %d\n SCP Driver not active?\n", GetLastError());
+			retVal = -2;
+		}
+		free(buf);
+	}
+	else
+	{
+		printf("Error: %d\n SCP Driver not installed?\n", GetLastError());
+		retVal = -4;
+	}
+	
+	if (retVal == 1)
+	{
+		pMogaData->SCP_Handle = CreateFile(Path, (GENERIC_WRITE | GENERIC_READ), FILE_SHARE_READ | FILE_SHARE_WRITE, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED, 0);
+		if (pMogaData->SCP_Handle == INVALID_HANDLE_VALUE)
+		{
+			printf("Couldn't attach to SCP driver.\n");
+			retVal = -1;
+		}
+	}
+	
+	if (SCP_OnOff(pMogaData, true) == 0)
+		printf("Warning - Controller ID %08X already attached.\n", pMogaData->Addr);
+	return retVal;
 }
 
 
-void intHandler(int sig)
+// Trigger and axis data from the Moga is apparently exactly what an Xbox360 controller expects.
+// Pressing start + select together seems like a good way to emulate the Xbox guide button.
+// Again, the data structure and update command are pulled from working source code.
+// I've no idea what the control codes or unused bytes are doing, or could do.
+void SCP_Update(MOGA_DATA *pMogaData)
+{
+	unsigned char Data[28];
+	DWORD Transfered = 0;
+	memset(Data, 0, sizeof(Data));
+	Data[0] = 0x1C;
+	Data[4] = ((pMogaData->Addr >> 0) & 0xFF);
+	Data[5] = ((pMogaData->Addr >> 8) & 0xFF);
+	Data[6] = ((pMogaData->Addr >> 16) & 0xFF);
+	Data[7] = ((pMogaData->Addr >> 24) & 0xFF);
+	Data[9] = 0x14;
+
+	Data[11] |= (((pMogaData->State[0] >> 5) & 
+		          (pMogaData->State[0] >> 4) & 1) << 2);  // Guide
+	Data[11] |= (((pMogaData->State[0] >> 6) & 1) << 0);  // L1
+	Data[11] |= (((pMogaData->State[0] >> 7) & 1) << 1);  // R1
+	Data[11] |= (((pMogaData->State[0] >> 2) & 1) << 4);  // A
+	Data[11] |= (((pMogaData->State[0] >> 1) & 1) << 5);  // B
+	Data[11] |= (((pMogaData->State[0] >> 3) & 1) << 6);  // X
+	Data[11] |= (((pMogaData->State[0] >> 0) & 1) << 7);  // Y
+	Data[10] |= (((pMogaData->State[0] >> 4) & 1) << 4);  // Start
+	Data[10] |= (((pMogaData->State[0] >> 5) & 1) << 5);  // Select
+	Data[10] |= (((pMogaData->State[1] >> 6) & 1) << 6);  // L3
+	Data[10] |= (((pMogaData->State[1] >> 7) & 1) << 7);  // R3
+
+	Data[10] |= pMogaData->State[1] & 0x0f;  // Dpad
+	
+	Data[15] = pMogaData->State[2];  // Left X-axis
+	Data[17] = pMogaData->State[3];  // Left Y-axis
+	Data[19] = pMogaData->State[4];  // Right X-axis
+	Data[21] = pMogaData->State[5];  // Right Y-axis
+	Data[12] = pMogaData->State[6];  // Left Trigger
+	Data[13] = pMogaData->State[7];  // Right Trigger
+
+	DeviceIoControl(pMogaData->SCP_Handle, 0x2A400C, Data, sizeof(Data), 0, 0, &Transfered, 0);
+}
+
+
+// Make the system think an xbox360 contoller has been plugged in or removed.  Unfortunately,
+// there doesn't seem to be a way of ensuring nobody else is using that controller when unplugging it.
+// SCP doesn't report the xinput device number, so we have to compare the xinput state before and after
+// attaching the virtual pad to see which number we've been assigned.
+int SCP_OnOff(MOGA_DATA *pMogaData, bool connect)
+{
+	unsigned char Data[16];
+	int i, retVal;
+	DWORD Transfered = 0;
+	XINPUT_STATE xState;
+	DWORD xConnected[4];
+	memset(Data, 0, sizeof(Data));
+	Data[0] = 0x10;
+	Data[4] = ((pMogaData->Addr >> 0) & 0xFF);
+	Data[5] = ((pMogaData->Addr >> 8) & 0xFF);
+	Data[6] = ((pMogaData->Addr >> 16) & 0xFF);
+	Data[7] = ((pMogaData->Addr >> 24) & 0xFF);
+
+	memset(pMogaData->State, 0, MOGABUF_LEN);  // zero the controller on connect/disconnect
+	if (connect)
+	{
+		for (i = 0; i < 4; i++)  // xinput connection status pre-attach
+			xConnected[i] = XInputGetState(i, &xState);
+		retVal = DeviceIoControl(pMogaData->SCP_Handle, 0x2A4000, Data, sizeof(Data), 0, 0, &Transfered, 0); // plugin
+		DeviceIoControl(pMogaData->SCP_Handle, 0x2A400C, Data, sizeof(Data), 0, 0, &Transfered, 0); // update to zero
+		Sleep(100);
+		for (i = 0; i < 4; i++)  // xinput connection status post-attach
+			if (xConnected[i] != XInputGetState(i, &xState))
+			{	pMogaData->CID = i+1;  break; }  // The blue Moga lights now mean something!
+	}
+	else
+	{
+		DeviceIoControl(pMogaData->SCP_Handle, 0x2A400C, Data, sizeof(Data), 0, 0, &Transfered, 0); // update to zero
+		retVal = DeviceIoControl(pMogaData->SCP_Handle, 0x2A4004, Data, sizeof(Data), 0, 0, &Transfered, 0); // unplug
+	}
+	return retVal;
+}
+
+
+BOOL intHandler(int sig)
 {
 	KeepGoing = false;
+	printf("\nExiting...\n");
+	SCP_OnOff(&MogaData, false);
+	return true;
 }
 
 
@@ -371,28 +519,16 @@ int main(int argc, char **argv)
 {
 	WSADATA wsd;
 	int retVal;
-	MOGA_DATA MogaData = MOGA_NULL;
 
 	// Boosting thread priority by 2 to combat input lag on some systems.
 	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
 
-	signal(SIGINT, intHandler);
+	SetConsoleCtrlHandler((PHANDLER_ROUTINE)intHandler, TRUE);
+	SetConsoleTitle(_T("MogaSerial"));
 
 	printf("-------------------------------------------\n");
-	printf("  Moga serial to vJoy interface   v 0.9.4  \n");
+	printf("  Moga serial to SCP interface    v x.9.6  \n");
 	printf("-------------------------------------------\n");
-
-   //Get desired vJoy port (allows multi-instance multicontroller)
-   //TODO: Consider moving this to after the controller selection
-   //for future multi-controller support
-   
-	MogaData.vJoyInt = promptVJoyID();
-	retVal = vJoySetup(&MogaData);
-	if (retVal < 1)
-	{
-		Sleep(5000);
-		exit(retVal);
-	}
 
 	if(WSAStartup(MAKEWORD(2,2), &wsd) != 0)
 	{
@@ -402,11 +538,22 @@ int main(int argc, char **argv)
 	}
 
 	retVal = FindMogaAddress(&MogaData);
-	if (retVal < 1)
+	if (retVal < 1 || !KeepGoing)
 	{
 		WSACleanup();
 		exit(retVal);
 	}
+
+	//MogaData.vJoyInt = promptVJoyID();
+	//retVal = vJoySetup(&MogaData);
+	MogaData.CID = 1;
+	retVal = SCP_Setup(&MogaData);
+	if (retVal < 1)
+	{
+		Sleep(5000);
+		exit(retVal);
+	}
+	printf("\nAttached as XInput controller %d\n", MogaData.CID);
 
 	while(KeepGoing)
 	{
@@ -417,9 +564,9 @@ int main(int argc, char **argv)
 		MogaReset(&MogaData);
 	}
  
-	printf("\nExiting...\n");
 	WSACleanup();
-	RelinquishVJD(MogaData.vJoyInt);
+	//RelinquishVJD(MogaData.vJoyInt);
+	SCP_OnOff(&MogaData, false);
 	Sleep(500);
 
 	return retVal;
