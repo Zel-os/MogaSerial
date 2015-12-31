@@ -10,7 +10,7 @@
 #include <Setupapi.h>
 #include <Xinput.h>
 //#include "public.h"
-#include "vjoyinterface.h"
+//#include "vjoyinterface.h"
  
 typedef ULONGLONG BT_ADDR;
 
