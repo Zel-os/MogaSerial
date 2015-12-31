@@ -432,7 +432,7 @@ int SCP_Setup(MOGA_DATA *pMogaData)
 void SCP_Update(MOGA_DATA *pMogaData)
 {
 	unsigned char Data[28];
-	DWORD Transfered = 0;
+	DWORD Transfered;
 	memset(Data, 0, sizeof(Data));
 	Data[0] = 0x1C;
 	Data[4] = ((pMogaData->Addr >> 0) & 0xFF);
@@ -471,13 +471,13 @@ void SCP_Update(MOGA_DATA *pMogaData)
 // there doesn't seem to be a way of ensuring nobody else is using that controller when unplugging it.
 // SCP doesn't report the xinput device number, so we have to compare the xinput state before and after
 // attaching the virtual pad to see which number we've been assigned.
+// The Moga won't respond with a CID of 0.  5 turns off the blue lights but still functions, works as a good error mode.
 int SCP_OnOff(MOGA_DATA *pMogaData, bool connect)
 {
 	unsigned char Data[16];
 	int i, retVal;
-	DWORD Transfered = 0;
 	XINPUT_STATE xState;
-	DWORD xConnected[4];
+	DWORD Transfered, xConnected[4];
 	memset(Data, 0, sizeof(Data));
 	Data[0] = 0x10;
 	Data[4] = ((pMogaData->Addr >> 0) & 0xFF);
@@ -491,15 +491,17 @@ int SCP_OnOff(MOGA_DATA *pMogaData, bool connect)
 		for (i = 0; i < 4; i++)  // xinput connection status pre-attach
 			xConnected[i] = XInputGetState(i, &xState);
 		retVal = DeviceIoControl(pMogaData->SCP_Handle, 0x2A4000, Data, sizeof(Data), 0, 0, &Transfered, 0); // plugin
-		DeviceIoControl(pMogaData->SCP_Handle, 0x2A400C, Data, sizeof(Data), 0, 0, &Transfered, 0); // update to zero
+		SCP_Update(pMogaData);  // update to zero
 		Sleep(100);
 		for (i = 0; i < 4; i++)  // xinput connection status post-attach
 			if (xConnected[i] != XInputGetState(i, &xState))
-			{	pMogaData->CID = i+1;  break; }  // The blue Moga lights now mean something!
+				break;
+		pMogaData->CID = i+1;  // The blue Moga lights now mean something!
 	}
 	else
 	{
-		DeviceIoControl(pMogaData->SCP_Handle, 0x2A400C, Data, sizeof(Data), 0, 0, &Transfered, 0); // update to zero
+		SCP_Update(pMogaData);  // update to zero
+		Sleep(100);
 		retVal = DeviceIoControl(pMogaData->SCP_Handle, 0x2A4004, Data, sizeof(Data), 0, 0, &Transfered, 0); // unplug
 	}
 	return retVal;
@@ -546,14 +548,16 @@ int main(int argc, char **argv)
 
 	//MogaData.vJoyInt = promptVJoyID();
 	//retVal = vJoySetup(&MogaData);
-	MogaData.CID = 1;
 	retVal = SCP_Setup(&MogaData);
 	if (retVal < 1)
 	{
 		Sleep(5000);
 		exit(retVal);
 	}
-	printf("\nAttached as XInput controller %d\n", MogaData.CID);
+	if (MogaData.CID < 5)
+		printf("\nAttached as XInput controller %d\n", MogaData.CID);
+	else
+		printf("\nCouldn't determine XInput controller number.\n", MogaData.CID);
 
 	while(KeepGoing)
 	{
