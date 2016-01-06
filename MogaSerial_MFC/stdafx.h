@@ -42,6 +42,8 @@
 //#include <signal.h>
 #include <winsock2.h>
 #include <ws2bth.h>
+#include <Setupapi.h>
+#include <Xinput.h>
 #include "vJoy\public.h"
 #include "vJoy\vjoyinterface.h"
 

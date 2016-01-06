@@ -38,7 +38,7 @@ const UINT WM_TASKBARCREATED = ::RegisterWindowMessage(_T("TaskbarCreated"));
 
 CMogaSerialDlg::CMogaSerialDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(CMogaSerialDlg::IDD, pParent)
-	, m_iCID(0)
+	, m_iDrv(0)
 	, m_iTriggerMode(0)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDI_MOGA);
@@ -50,14 +50,12 @@ void CMogaSerialDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_BTLIST, c_BTList);
 	DDX_Control(pDX, IDC_BTREFRESH, c_BTRefresh);
 	DDX_Control(pDX, IDC_VJOYID, c_vJoyID);
-	DDX_Control(pDX, IDC_RADIO1, c_CID1);
-	DDX_Control(pDX, IDC_RADIO2, c_CID2);
-	DDX_Control(pDX, IDC_RADIO3, c_CID3);
-	DDX_Control(pDX, IDC_RADIO4, c_CID4);
+	DDX_Control(pDX, IDC_RADIO1, c_Drv1);
+	DDX_Control(pDX, IDC_RADIO2, c_Drv2);
 	DDX_Control(pDX, IDC_RADIOA, c_TModeA);
 	DDX_Control(pDX, IDC_RADIOB, c_TModeB);
 	DDX_Control(pDX, IDC_RADIOC, c_TModeC);
-	DDX_Radio(pDX, IDC_RADIO1, m_iCID);
+	DDX_Radio(pDX, IDC_RADIO1, m_iDrv);
 	DDX_Radio(pDX, IDC_RADIOA, m_iTriggerMode);
 	DDX_Control(pDX, IDC_OUTPUT, c_Output);
 	DDX_Control(pDX, IDC_STOPGO, c_StopGo);
@@ -79,6 +77,8 @@ BEGIN_MESSAGE_MAP(CMogaSerialDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_ABOUT, &CMogaSerialDlg::OnBnClickedAbout)
 	ON_WM_DESTROY()
 	ON_WM_SYSCOMMAND()
+	ON_BN_CLICKED(IDC_RADIO1, &CMogaSerialDlg::OnBnClickedRadio1)
+	ON_BN_CLICKED(IDC_RADIO2, &CMogaSerialDlg::OnBnClickedRadio2)
 END_MESSAGE_MAP()
 
 
@@ -103,9 +103,11 @@ BOOL CMogaSerialDlg::OnInitDialog()
 	//Create the ToolTip control
 	InitToolTips();
 
-	vJoyCheck();
-	if (vJoyOK)
-		UpdateBTList_Start(false);  // Get quick bluetooth device list from system cache
+	vJoyOK = vJoyCheck();
+	ScpOK = ScpCheck();
+
+	// Get quick bluetooth device list from system cache
+	UpdateBTList_Start(false);
 
 	// populate listbox vaules, read and validate registry defaults
 	int a,b,c,d;
@@ -113,11 +115,11 @@ BOOL CMogaSerialDlg::OnInitDialog()
 	if (a < 0 || a >= c_BTList.GetCount())	a = 0;
 	if (b < 0 || b >= c_vJoyID.GetCount())	b = 0;
 	if (c < 0 || c > 2)						c = 0;
-	if (d < 0 || d > 3)						d = 0;
+	if (d < 0 || d > 1)						d = 0;
 	c_BTList.SetCurSel(a);
 	c_vJoyID.SetCurSel(b);
 	m_iTriggerMode = c;
-	m_iCID = d;
+	m_iDrv = d;
 	UpdateData(false);
 	m_Moga.m_KeepGoing = false;
 	m_Moga.m_Debug = false;
@@ -182,15 +184,12 @@ void CMogaSerialDlg::InitToolTips()
 	{
 		// Add tool tips to the controls, either by hard coded string 
 		// or using the string table resource
-		//m_BTFrame.ModifyStyle(0, SS_NOTIFY);
 		m_ToolTip.SetMaxTipWidth(SHRT_MAX);
 		m_ToolTip.AddTool( GetDlgItem(IDC_BTLIST), IDS_BT_TOOLTIP);
 		m_ToolTip.AddTool( GetDlgItem(IDC_BTREFRESH), IDS_BTR_TOOLTIP);
 		m_ToolTip.AddTool( GetDlgItem(IDC_VJOYID), IDS_VID_TOOLTIP);
-		m_ToolTip.AddTool( GetDlgItem(IDC_RADIO1), IDS_CID_TOOLTIP);
-		m_ToolTip.AddTool( GetDlgItem(IDC_RADIO2), IDS_CID_TOOLTIP);
-		m_ToolTip.AddTool( GetDlgItem(IDC_RADIO3), IDS_CID_TOOLTIP);
-		m_ToolTip.AddTool( GetDlgItem(IDC_RADIO4), IDS_CID_TOOLTIP);
+		m_ToolTip.AddTool( GetDlgItem(IDC_RADIO1), IDS_VJOY_TOOLTIP);
+		m_ToolTip.AddTool( GetDlgItem(IDC_RADIO2), IDS_SCP_TOOLTIP);
 		m_ToolTip.AddTool( GetDlgItem(IDC_RADIOA), IDS_TA_TOOLTIP);
 		m_ToolTip.AddTool( GetDlgItem(IDC_RADIOB), IDS_TB_TOOLTIP);
 		m_ToolTip.AddTool( GetDlgItem(IDC_RADIOC), IDS_TC_TOOLTIP);
@@ -217,12 +216,14 @@ void CMogaSerialDlg::InitSysTrayIcon()
 
 
 // Ensure the vJoy driver exists, and compare versions.
-void CMogaSerialDlg::vJoyCheck()
+bool CMogaSerialDlg::vJoyCheck()
 {
 	CString s;
+	bool retVal = true;
 	WORD VerDll, VerDrv;
-	vJoyOK = vJoyEnabled();
-	if (!vJoyOK)
+	if (!vJoyEnabled())
+		retVal = false;
+	if (!retVal)
 	{
 		s.LoadString(IDS_VJOY_FAIL);
 		c_Output.SetWindowText(s);
@@ -233,6 +234,53 @@ void CMogaSerialDlg::vJoyCheck()
 		s.FormatMessage(IDS_VJOY_DLL_NOTICE, VerDrv, VerDll);
 		c_Output.SetWindowText(s);
 	}
+	return retVal;
+}
+
+
+// Ensure the SCP virtual device driver exists, then get a handle to it.
+// Most of this is extracted from working source code in other projects.  Unfortunately with
+// no documentation for SCP, I'm not sure if there's any better way of doing this.
+// {F679F562-3164-42CE-A4DB-E7DDBE723909} - GUID for main SCP device interface
+bool CMogaSerialDlg::ScpCheck()
+{
+	GUID Target = { 0xF679F562, 0x3164, 0x42CE, {0xA4, 0xDB, 0xE7, 0xDD, 0xBE, 0x72, 0x39, 0x09}};
+	wchar_t Path[256];
+	char *buf;
+	bool retVal = true;
+	DWORD bufferSize;
+	HDEVINFO deviceInfoSet;
+	SP_DEVICE_INTERFACE_DATA DeviceInterfaceData;
+	PSP_DEVICE_INTERFACE_DETAIL_DATA pDeviceDetailData;
+	SP_DEVINFO_DATA DevInfoData;
+
+	wcscpy_s(Path, _T(""));
+	m_Moga.m_ScpHandle = INVALID_HANDLE_VALUE;
+	DeviceInterfaceData.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
+	DevInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
+	deviceInfoSet = SetupDiGetClassDevs(&Target, 0, 0, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
+	if (SetupDiEnumDeviceInterfaces(deviceInfoSet, 0, &Target, 0, &DeviceInterfaceData))
+	{
+		SetupDiGetDeviceInterfaceDetail(deviceInfoSet, &DeviceInterfaceData, 0, 0, &bufferSize, &DevInfoData);
+		buf = (char *)malloc(sizeof(char) * bufferSize);
+		pDeviceDetailData = (PSP_DEVICE_INTERFACE_DETAIL_DATA)buf;
+		pDeviceDetailData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
+		if (SetupDiGetDeviceInterfaceDetail(deviceInfoSet, &DeviceInterfaceData, pDeviceDetailData, bufferSize, &bufferSize, &DevInfoData))
+			wcscpy_s(Path, pDeviceDetailData->DevicePath);
+		free(buf);
+	}
+	
+	if (wcscmp(Path, _T("")) != 0)
+		m_Moga.m_ScpHandle = CreateFile(Path, (GENERIC_WRITE | GENERIC_READ), FILE_SHARE_READ | FILE_SHARE_WRITE, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED, 0);
+
+	if (m_Moga.m_ScpHandle == INVALID_HANDLE_VALUE)
+	{
+		CString s;
+		s.LoadString(IDS_SCP_FAIL);
+		c_Output.SetWindowText(s);
+		retVal = false;
+	}
+	return retVal;
 }
 
 
@@ -245,12 +293,9 @@ void CMogaSerialDlg::LockControls()
 	bool BTlist = true,  BTrefresh = true, 
 		 options = true, stopgo = true;
 
-	if (!vJoyOK)
+	if (!vJoyOK || m_iDrv == 1)
 	{
-		BTlist = false;
-		BTrefresh = false;
 		options = false;
-		stopgo = false;
 	}
 	if (BT_thread_running)
 	{
@@ -270,13 +315,11 @@ void CMogaSerialDlg::LockControls()
 	{
 		stopgo = false;
 	}
+	c_Drv1.EnableWindow(vJoyOK & !Moga_thread_running);
+	c_Drv2.EnableWindow(ScpOK & !Moga_thread_running);
 	c_BTList.EnableWindow(BTlist);
 	c_BTRefresh.EnableWindow(BTrefresh);
 	c_vJoyID.EnableWindow(options);
-	c_CID1.EnableWindow(options);
-	c_CID2.EnableWindow(options);
-	c_CID3.EnableWindow(options);
-	c_CID4.EnableWindow(options);
 	c_TModeA.EnableWindow(options);
 	c_TModeB.EnableWindow(options);
 	c_TModeC.EnableWindow(options);
@@ -331,6 +374,20 @@ void CMogaSerialDlg::OnDestroy()
 {
 	Shell_NotifyIcon(NIM_DELETE,&m_trayIcon);
 	CDialogEx::OnDestroy();
+}
+
+
+void CMogaSerialDlg::OnBnClickedRadio1()
+{
+	UpdateData(true);
+	LockControls();
+}
+
+
+void CMogaSerialDlg::OnBnClickedRadio2()
+{
+	UpdateData(true);
+	LockControls();
 }
 
 
@@ -401,8 +458,8 @@ void CMogaSerialDlg::MogaHandler_Start()
 	m_Moga.m_vJoyInt = c_vJoyID.GetCurSel() + 1;
 	m_Moga.m_Addr = BTList_info[BTList_idx].addr;
 	m_Moga.m_TriggerMode = m_iTriggerMode;
-	m_Moga.m_CID = m_iCID + 1;
-	DefaultRegString.Format(_T("%d,%d,%d,%d"), BTList_idx, c_vJoyID.GetCurSel(), m_iTriggerMode, m_iCID);
+	m_Moga.m_CID = 1;
+	DefaultRegString.Format(_T("%d,%d,%d,%d"), BTList_idx, c_vJoyID.GetCurSel(), m_iTriggerMode, m_iDrv);
 
 	AfxBeginThread(MogaHandler_Launch, &m_Moga);
 }
@@ -564,6 +621,7 @@ UINT CMogaSerialDlg::BTAddressDiscovery(LPVOID pParam)
 	HANDLE hLookup;
 	LPWSAQUERYSET pwsaQuery;
 	DWORD dwSize, dwFlags = LUP_CONTAINERS, dwAddrSize;
+	wchar_t BTaddr[32];
 	int i = 0;
 
 	if (btt_p->refresh)
@@ -583,11 +641,10 @@ UINT CMogaSerialDlg::BTAddressDiscovery(LPVOID pParam)
 		{
 			wcsncpy_s(BTList_info[i].name, pwsaQuery->lpszServiceInstanceName, sizeof(BTList_info[i].name));
 			BTList_info[i].addr = ((SOCKADDR_BTH *)pwsaQuery->lpcsaBuffer->RemoteAddr.lpSockaddr)->btAddr;
-			if (wcslen(BTList_info[i].name) == 0)
-			{
-				dwAddrSize = sizeof(BTList_info[i].name);
-				WSAAddressToString(pwsaQuery->lpcsaBuffer->RemoteAddr.lpSockaddr, sizeof(SOCKADDR_BTH), NULL, (LPWSTR)BTList_info[i].name, &dwAddrSize);
-			}
+			dwAddrSize = sizeof(BTaddr);
+			WSAAddressToString(pwsaQuery->lpcsaBuffer->RemoteAddr.lpSockaddr, sizeof(SOCKADDR_BTH), NULL, (LPWSTR)BTaddr, &dwAddrSize);
+			wcsncat_s(BTList_info[i].name, _T("  -  "), 5);
+			wcsncat_s(BTList_info[i].name, BTaddr, dwAddrSize);
 			i++;
 		}
 		WSALookupServiceEnd(hLookup);

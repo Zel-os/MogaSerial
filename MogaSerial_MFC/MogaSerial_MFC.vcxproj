@@ -85,7 +85,9 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>vJoy\vJoyInterface.lib</AdditionalDependencies>
+      <AdditionalDependencies>vJoy\vJoyInterface.lib;Setupapi.lib;Xinput.lib</AdditionalDependencies>
+      <DelayLoadDLLs>
+      </DelayLoadDLLs>
     </Link>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>

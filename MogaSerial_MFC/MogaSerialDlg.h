@@ -57,6 +57,8 @@ private:
 	afx_msg void OnBnClickedStopGo();
 	afx_msg void OnBnClickedAbout();
 	afx_msg void OnBnClickedDebug();
+	afx_msg void OnBnClickedRadio1();
+	afx_msg void OnBnClickedRadio2();
 	afx_msg LRESULT onTrayNotify(WPARAM, LPARAM);
 	afx_msg LRESULT OnTaskBarCreated(WPARAM, LPARAM);
 	afx_msg void OnSysCommand(UINT, LPARAM);
@@ -64,7 +66,8 @@ private:
 	// Custom functions
 	void InitToolTips();
 	void InitSysTrayIcon();
-	void vJoyCheck();
+	bool vJoyCheck();
+	bool ScpCheck();
 	void LockControls();
 	void UnlockStopGOButton();
 	void UpdateBTList_Start(int);
@@ -82,8 +85,8 @@ public:
 	CComboBox c_BTList;
 	CMFCButton c_BTRefresh;
 	CComboBox c_vJoyID;
-	CButton c_CID1, c_CID2, c_CID3, c_CID4;
-	int m_iCID;
+	CButton c_Drv1, c_Drv2;
+	int m_iDrv;
 	CButton c_TModeA, c_TModeB, c_TModeC;
 	int m_iTriggerMode;
 	CEdit c_Output;
@@ -94,6 +97,6 @@ public:
 	bool BT_thread_running;
 	bool Moga_thread_running;
 	bool Moga_first_connect;
-	int vJoyOK;
+	bool vJoyOK, ScpOK;
 };
 
