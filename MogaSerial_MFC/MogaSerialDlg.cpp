@@ -15,6 +15,8 @@ Abstract:
 	MFC GUI implementation for the Moga serial to vJoy interface program.
 
 Revision History:
+	1.5.0 - Support for the SCP driver added.
+	1.3.0 - Settings saved to registry.
 	1.2.0 - Message callbacks and debug switch added.  First public release.
 	1.1.x - Trigger mode switch added.  Tooltips and status messages added.
 	1.0.x - Test builds and experimentation.
@@ -24,7 +26,6 @@ Revision History:
 #include "stdafx.h"
 #include "MogaSerial.h"
 #include "MogaSerialDlg.h"
-#include "afxdialogex.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -38,7 +39,7 @@ const UINT WM_TASKBARCREATED = ::RegisterWindowMessage(_T("TaskbarCreated"));
 
 CMogaSerialDlg::CMogaSerialDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(CMogaSerialDlg::IDD, pParent)
-	, m_iDrv(0)
+	, m_iDriver(0)
 	, m_iTriggerMode(0)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDI_MOGA);
@@ -55,7 +56,7 @@ void CMogaSerialDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_RADIOA, c_TModeA);
 	DDX_Control(pDX, IDC_RADIOB, c_TModeB);
 	DDX_Control(pDX, IDC_RADIOC, c_TModeC);
-	DDX_Radio(pDX, IDC_RADIO1, m_iDrv);
+	DDX_Radio(pDX, IDC_RADIO1, m_iDriver);
 	DDX_Radio(pDX, IDC_RADIOA, m_iTriggerMode);
 	DDX_Control(pDX, IDC_OUTPUT, c_Output);
 	DDX_Control(pDX, IDC_STOPGO, c_StopGo);
@@ -103,9 +104,6 @@ BOOL CMogaSerialDlg::OnInitDialog()
 	//Create the ToolTip control
 	InitToolTips();
 
-	vJoyOK = vJoyCheck();
-	ScpOK = ScpCheck();
-
 	// Get quick bluetooth device list from system cache
 	UpdateBTList_Start(false);
 
@@ -119,11 +117,17 @@ BOOL CMogaSerialDlg::OnInitDialog()
 	c_BTList.SetCurSel(a);
 	c_vJoyID.SetCurSel(b);
 	m_iTriggerMode = c;
-	m_iDrv = d;
+	m_iDriver = d;
 	UpdateData(false);
+	m_Moga.m_ScpHandle = INVALID_HANDLE_VALUE;
 	m_Moga.m_KeepGoing = false;
 	m_Moga.m_Debug = false;
 	Moga_thread_running = false;
+
+	if (m_iDriver == 0)
+		vJoyOK = vJoyCheck();
+	if (m_iDriver == 1)
+		ScpOK = ScpCheck();
 
 	InitSysTrayIcon();
   
@@ -255,7 +259,11 @@ bool CMogaSerialDlg::ScpCheck()
 	SP_DEVINFO_DATA DevInfoData;
 
 	wcscpy_s(Path, _T(""));
-	m_Moga.m_ScpHandle = INVALID_HANDLE_VALUE;
+	if (m_Moga.m_ScpHandle != INVALID_HANDLE_VALUE)
+	{
+		CloseHandle(m_Moga.m_ScpHandle);
+		m_Moga.m_ScpHandle = INVALID_HANDLE_VALUE;
+	}
 	DeviceInterfaceData.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
 	DevInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
 	deviceInfoSet = SetupDiGetClassDevs(&Target, 0, 0, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
@@ -291,9 +299,9 @@ bool CMogaSerialDlg::ScpCheck()
 void CMogaSerialDlg::LockControls()
 {
 	bool BTlist = true,  BTrefresh = true, 
-		 options = true, stopgo = true;
+		 drivers = true, options = true, stopgo = true;
 
-	if (!vJoyOK || m_iDrv == 1)
+	if (!vJoyOK || m_iDriver == 1)
 	{
 		options = false;
 	}
@@ -308,17 +316,19 @@ void CMogaSerialDlg::LockControls()
 		BTlist = false;
 		BTrefresh = false;
 		options = false;
+		drivers = false;
 	}
 	if ((c_BTList.GetCount() == 0) || 
+		((m_iDriver == 0 && !vJoyOK)) || ((m_iDriver == 1 && !ScpOK)) || 
 		((Moga_thread_running == true) && (Moga_first_connect == true)) || 
 		((Moga_thread_running == true) && (m_Moga.m_KeepGoing == false)))
 	{
 		stopgo = false;
 	}
-	c_Drv1.EnableWindow(vJoyOK & !Moga_thread_running);
-	c_Drv2.EnableWindow(ScpOK & !Moga_thread_running);
 	c_BTList.EnableWindow(BTlist);
 	c_BTRefresh.EnableWindow(BTrefresh);
+	c_Drv1.EnableWindow(drivers);
+	c_Drv2.EnableWindow(drivers);
 	c_vJoyID.EnableWindow(options);
 	c_TModeA.EnableWindow(options);
 	c_TModeB.EnableWindow(options);
@@ -379,6 +389,7 @@ void CMogaSerialDlg::OnDestroy()
 
 void CMogaSerialDlg::OnBnClickedRadio1()
 {
+	vJoyOK = vJoyCheck();
 	UpdateData(true);
 	LockControls();
 }
@@ -386,6 +397,7 @@ void CMogaSerialDlg::OnBnClickedRadio1()
 
 void CMogaSerialDlg::OnBnClickedRadio2()
 {
+	ScpOK = ScpCheck();
 	UpdateData(true);
 	LockControls();
 }
@@ -451,15 +463,19 @@ void CMogaSerialDlg::MogaHandler_Start()
 	Moga_thread_running = true;
 	Moga_first_connect = true;
 	LockControls();
+	MogaHandler_Msg(0, 0);
 
 	UpdateData(true);
 	BTList_idx = c_BTList.GetItemData(c_BTList.GetCurSel());
 	m_Moga.m_hGUI = this->m_hWnd;
 	m_Moga.m_vJoyInt = c_vJoyID.GetCurSel() + 1;
 	m_Moga.m_Addr = BTList_info[BTList_idx].addr;
-	m_Moga.m_TriggerMode = m_iTriggerMode;
-	m_Moga.m_CID = 1;
-	DefaultRegString.Format(_T("%d,%d,%d,%d"), BTList_idx, c_vJoyID.GetCurSel(), m_iTriggerMode, m_iDrv);
+	if (m_iDriver == 0)
+		m_Moga.m_TriggerMode = m_iTriggerMode;
+	else
+		m_Moga.m_TriggerMode = 1;
+	m_Moga.m_Driver = m_iDriver;
+	DefaultRegString.Format(_T("%d,%d,%d,%d"), BTList_idx, c_vJoyID.GetCurSel(), m_iTriggerMode, m_iDriver);
 
 	AfxBeginThread(MogaHandler_Launch, &m_Moga);
 }
@@ -496,20 +512,22 @@ void CMogaSerialDlg::StopMogaThread()
 {
 //	MSG uMsg;
 	m_Moga.m_KeepGoing = false;
-// The following check wasn't working.  Sleeping two seconds works just as well.
+// The following check wasn't working.  Sleeping a few seconds works just as well.
 //	while (Moga_thread_running)
 //	{
 //		if (PeekMessage(&uMsg, this->m_hWnd, 0, 0, PM_REMOVE) > 0)
 //			DispatchMessage(&uMsg);
 //	}
-	Sleep(2500);
+	Sleep(3000);
 }
 
 
 // Moga message handler callback.
 LRESULT CMogaSerialDlg::MogaHandler_Msg(WPARAM wParam, LPARAM lParam)
 {
-	CString s;
+	static CString s(""), s2(""), s3("");
+	s3 = s2;
+	s2 = s;
 	switch ((int)wParam)
 	{
 	case IDS_VJOY_ERR1:
@@ -527,8 +545,20 @@ LRESULT CMogaSerialDlg::MogaHandler_Msg(WPARAM wParam, LPARAM lParam)
 	case IDS_VJOY_SUCCESS:
 		s.FormatMessage(IDS_VJOY_SUCCESS, (wchar_t *)GetvJoySerialNumberString(), m_Moga.m_vJoyInt);
 		break;
+	case IDS_SCP_ERR1:
+		s.FormatMessage(IDS_SCP_ERR1, m_Moga.m_Addr);
+		break;
+	case IDS_SCP_ERR2:
+		s.FormatMessage(IDS_SCP_ERR2);
+		break;
+	case IDS_SCP_XNUM:
+		s.FormatMessage(IDS_SCP_XNUM, m_Moga.m_CID);
+		break;
 	case IDS_MOGA_CONNECTING:
 		s.FormatMessage(IDS_MOGA_CONNECTING, BTList_info[c_BTList.GetItemData(c_BTList.GetCurSel())].name);
+		break;
+	case IDS_MOGA_DISCONNECT:
+		s.FormatMessage(IDS_MOGA_DISCONNECT);
 		break;
 	case IDS_MOGA_CONNECTED:
 		s.FormatMessage(IDS_MOGA_CONNECTED);
@@ -542,11 +572,12 @@ LRESULT CMogaSerialDlg::MogaHandler_Msg(WPARAM wParam, LPARAM lParam)
 		break;
 	case IDS_MOGA_DEBUG:
 		s = CString((char *)lParam);
+		s2 = s3 = "";
 		break;
 	default:
-		s;
+		s = s2 = s3 = "";
 	}
-	c_Output.SetWindowText(s);
+	c_Output.SetWindowText(s + "\r\n" + s2 + "\r\n" + s3);
 	return 0;
 }
 
@@ -564,7 +595,7 @@ void CMogaSerialDlg::UpdateBTList_Start(BOOL refresh)
 	LockControls();
 	if (btt_p->refresh)
 	{
-		s.FormatMessage(IDS_BT_SCAN_START);
+		s.FormatMessage(IDS_BTSCAN_START);
 		c_Output.SetWindowText(s);
 	}
 	while (c_BTList.DeleteString(0) > 0);  // clear the bluetooth list
@@ -584,20 +615,19 @@ LRESULT CMogaSerialDlg::UpdateBTList_Done(WPARAM wParam, LPARAM lParam)
 	{
 		for (i = 0; i < (int)wParam; i++)
 		{
-			BT_Line.Format(_T("%ls"), BTList_info[i].name);
+			BT_Line.Format(_T("%ls  -  %ls"), BTList_info[i].name, BTList_info[i].name2);
 			j = c_BTList.AddString(BT_Line);
 			c_BTList.SetItemData(j, i);
 		}
 		c_BTList.SetCurSel(0);
 		if (btt_p->refresh)
 		{
-			BT_Line.FormatMessage(IDS_BT_SCAN_DONE);
+			BT_Line.FormatMessage(IDS_BTSCAN_DONE);
 			c_Output.SetWindowText(BT_Line);
 		}
 	}
 	else
 	{
-		//BT_Line.Format(_T("Error: Couldn't get Bluetooth device list.\r\n(Winsock code %d)"), (int)wParam);
 		BT_Line.FormatMessage(IDS_BTSCAN_ERROR, (int)wParam);
 		c_Output.SetWindowText(BT_Line);
 	}
@@ -621,7 +651,6 @@ UINT CMogaSerialDlg::BTAddressDiscovery(LPVOID pParam)
 	HANDLE hLookup;
 	LPWSAQUERYSET pwsaQuery;
 	DWORD dwSize, dwFlags = LUP_CONTAINERS, dwAddrSize;
-	wchar_t BTaddr[32];
 	int i = 0;
 
 	if (btt_p->refresh)
@@ -641,10 +670,8 @@ UINT CMogaSerialDlg::BTAddressDiscovery(LPVOID pParam)
 		{
 			wcsncpy_s(BTList_info[i].name, pwsaQuery->lpszServiceInstanceName, sizeof(BTList_info[i].name));
 			BTList_info[i].addr = ((SOCKADDR_BTH *)pwsaQuery->lpcsaBuffer->RemoteAddr.lpSockaddr)->btAddr;
-			dwAddrSize = sizeof(BTaddr);
-			WSAAddressToString(pwsaQuery->lpcsaBuffer->RemoteAddr.lpSockaddr, sizeof(SOCKADDR_BTH), NULL, (LPWSTR)BTaddr, &dwAddrSize);
-			wcsncat_s(BTList_info[i].name, _T("  -  "), 5);
-			wcsncat_s(BTList_info[i].name, BTaddr, dwAddrSize);
+			dwAddrSize = sizeof(BTList_info[i].name2);
+			WSAAddressToString(pwsaQuery->lpcsaBuffer->RemoteAddr.lpSockaddr, sizeof(SOCKADDR_BTH), NULL, (LPWSTR)BTList_info[i].name2, &dwAddrSize);
 			i++;
 		}
 		WSALookupServiceEnd(hLookup);
@@ -652,7 +679,6 @@ UINT CMogaSerialDlg::BTAddressDiscovery(LPVOID pParam)
 	}
 	else
 	{
-		//printf("WSALookupServiceBegin() failed %d\r\n", WSAGetLastError());
 		i = WSAGetLastError();
 		btt_p->update = false;
 	}

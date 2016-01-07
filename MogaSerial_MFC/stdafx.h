@@ -23,8 +23,9 @@
 #include <afxwin.h>         // MFC core and standard components
 #include <afxext.h>         // MFC extensions
 
+#include <afxdialogex.h>
 
-
+#include <afxbutton.h>
 
 
 #ifndef _AFX_NO_OLE_SUPPORT
@@ -37,9 +38,7 @@
 #include <afxcontrolbars.h>     // MFC support for ribbons and control bars
 
 
-#include <stdio.h>
 #include <stdint.h>
-//#include <signal.h>
 #include <winsock2.h>
 #include <ws2bth.h>
 #include <Setupapi.h>

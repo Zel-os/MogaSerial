@@ -18,6 +18,8 @@ Environment:
     kernel mode and User mode
 
 Revision History:
+	1.5.0 - Support for the SCP driver added.
+	1.3.2 - Priority boost and tweaks to address latency.
 	1.2.0 - Message callbacks and debug switch added.
 	1.1.x - Trigger mode switch added.
 	1.0.x - Class conversion for MFC build.
@@ -116,7 +118,6 @@ void CMogaSerialMain::PrintBuf(unsigned char *buf)
 	for (i=0; i<buf[1]; i++)
 		j += sprintf_s(dbuf+j, RECVBUF_LEN-j, "%02x ", buf[i]);
 	::PostMessage(m_hGUI, WM_MOGAHANDLER_MSG, IDS_MOGA_DEBUG, (LPARAM)dbuf);
-	//printf("\n");
 }
 
 
@@ -134,15 +135,11 @@ int CMogaSerialMain::MogaConnect()
 	sockAddr.port = 0;  
 	sockAddr.btAddr = m_Addr;
 
-	//printf("\nAttempting connection ... ");
 	::PostMessage(m_hGUI, WM_MOGAHANDLER_MSG, IDS_MOGA_CONNECTING, 0);
 	retVal = connect(m_Socket, (SOCKADDR*)&sockAddr, sizeof(sockAddr));
 	if (retVal)
-	{
-		//printf("Failed.  (%d)\n", GetLastError());
 		return 0;
-	}
-	//printf("Success.  Press <Ctrl-C> to quit.\n");
+
 	::PostMessage(m_hGUI, WM_MOGAHANDLER_MSG, IDS_MOGA_CONNECTED, 0);
 	MogaSendMsg(67);  // Set controller ID
 	return 1;
@@ -154,10 +151,9 @@ void CMogaSerialMain::MogaReset()
 	closesocket(m_Socket);
 	m_Socket = INVALID_SOCKET;
 	memset(m_State, 0, MOGABUF_LEN);
-	vJoyUpdate();
+	DriverUpdate(this);
 	if (m_KeepGoing)
 	{
-		//printf("Reconnecting in 3 seconds.\n");
 		::PostMessage(m_hGUI, WM_MOGAHANDLER_MSG, IDS_MOGA_RECONNECT, 0);
 		Sleep(3000);
 	}
@@ -184,20 +180,26 @@ void CMogaSerialMain::MogaListener()
 			retVal = MogaGetMsg();
 			if (retVal == 1)
 				MogaSendMsg(listen_code);  // Re-enable listen mode if the first try failed.
-			//else
-			//	printf("Moga disconnected.  (%d)\n", GetLastError());
+			else
+				::PostMessage(m_hGUI, WM_MOGAHANDLER_MSG, IDS_MOGA_DISCONNECT, 0);
 		}
-		vJoyUpdate();
+		DriverUpdate(this);
 	}
 }
 
 
 // The new 2.1.6 vJoy dll won't work with older versions of vJoy drivers.
 // Fortunately the old 2.0.5 vJoy dll works with new versions, despite giving an error message.
-int CMogaSerialMain::vJoyAttach()
+int vJoyCtrl::vJoyAttach(CMogaSerialMain *t, bool connect)
 {
+	if (!connect)
+	{
+		RelinquishVJD(t->m_vJoyInt);
+		return 1;
+	}
+
 	// Get the state of the requested device
-	VjdStat status = GetVJDStatus(m_vJoyInt);
+	VjdStat status = GetVJDStatus(t->m_vJoyInt);
 	switch (status)
 	{
 	case VJD_STAT_OWN:
@@ -205,32 +207,27 @@ int CMogaSerialMain::vJoyAttach()
 	case VJD_STAT_FREE:
 		break;
 	case VJD_STAT_BUSY:
-		//printf("vJoy Device %d is already owned by another feeder\nCannot continue\n", m_vJoyInt);
-		::PostMessage(m_hGUI, WM_MOGAHANDLER_MSG, IDS_VJOY_ERR1, 0);
+		::PostMessage(t->m_hGUI, WM_MOGAHANDLER_MSG, IDS_VJOY_ERR1, 0);
 		return -3;
 	case VJD_STAT_MISS:
-		//printf("vJoy Device %d is not installed or disabled\nCannot continue\n", m_vJoyInt);
-		::PostMessage(m_hGUI, WM_MOGAHANDLER_MSG, IDS_VJOY_ERR2, 0);
+		::PostMessage(t->m_hGUI, WM_MOGAHANDLER_MSG, IDS_VJOY_ERR2, 0);
 		return -4;
 	default:
-		//printf("vJoy Device %d general error\nCannot continue\n", m_vJoyInt);
-		::PostMessage(m_hGUI, WM_MOGAHANDLER_MSG, IDS_VJOY_ERR3, 0);
+		::PostMessage(t->m_hGUI, WM_MOGAHANDLER_MSG, IDS_VJOY_ERR3, 0);
 		return -1;
 	};
 
 	// Acquire the target
-	if ((status == VJD_STAT_OWN) || ((status == VJD_STAT_FREE) && (!AcquireVJD(m_vJoyInt))))
+	if ((status == VJD_STAT_OWN) || ((status == VJD_STAT_FREE) && (!AcquireVJD(t->m_vJoyInt))))
 	{
-		//printf("Failed to acquire vJoy device number %d.\n", m_vJoyInt);
-		::PostMessage(m_hGUI, WM_MOGAHANDLER_MSG, IDS_VJOY_ERR4, 0);
+		::PostMessage(t->m_hGUI, WM_MOGAHANDLER_MSG, IDS_VJOY_ERR4, 0);
 		return -1;
 	}
-	//printf("vJoy %S enabled, attached to device %d.\n\n", (wchar_t *)GetvJoySerialNumberString(), m_vJoyInt);
-	::PostMessage(m_hGUI, WM_MOGAHANDLER_MSG, IDS_VJOY_SUCCESS, 0);
+	::PostMessage(t->m_hGUI, WM_MOGAHANDLER_MSG, IDS_VJOY_SUCCESS, 0);
 	Sleep(500);
-	memset(m_State, 0, MOGABUF_LEN);
-	vJoyUpdate();
-
+	memset(t->m_State, 0, MOGABUF_LEN);
+	vJoyUpdate(t);
+	t->m_CID = ((t->m_vJoyInt - 1) & 0x11) + 1;  // Set the blue light based on vJoy id number, just because.
 	return 1;
 }
 
@@ -241,26 +238,25 @@ int CMogaSerialMain::vJoyAttach()
 //       11et       3322 EWSN   x axis     y axis     x axis     y axis     trigger    trigger
 // Triggers are reported as both buttons and axis.
 // Thumbsticks report 00 at neutral, need to be corrected.
-// Buttons are so, so scrambled from what's "expected".
-void CMogaSerialMain::vJoyUpdate()
+void vJoyCtrl::vJoyUpdate(CMogaSerialMain *t)
 {
 	JOYSTICK_POSITION vJoyData;
 
-	vJoyData.bDevice = (BYTE)m_vJoyInt;
+	vJoyData.bDevice = (BYTE)t->m_vJoyInt;
 
 	vJoyData.lButtons = 0;
-	vJoyData.lButtons |= (((m_State[0] >> 2) & 1) << 0);  // A
-	vJoyData.lButtons |= (((m_State[0] >> 1) & 1) << 1);  // B
-	vJoyData.lButtons |= (((m_State[0] >> 3) & 1) << 2);  // X
-	vJoyData.lButtons |= (((m_State[0] >> 0) & 1) << 3);  // Y
-	vJoyData.lButtons |= (((m_State[0] >> 6) & 1) << 4);  // L1
-	vJoyData.lButtons |= (((m_State[0] >> 7) & 1) << 5);  // R1
-	vJoyData.lButtons |= (((m_State[0] >> 5) & 1) << 6);  // Select
-	vJoyData.lButtons |= (((m_State[0] >> 4) & 1) << 7);  // Start
-	vJoyData.lButtons |= (((m_State[1] >> 6) & 1) << 8);  // L3
-	vJoyData.lButtons |= (((m_State[1] >> 7) & 1) << 9);  // R3
+	vJoyData.lButtons |= (((t->m_State[0] >> 2) & 1) << 0);  // A
+	vJoyData.lButtons |= (((t->m_State[0] >> 1) & 1) << 1);  // B
+	vJoyData.lButtons |= (((t->m_State[0] >> 3) & 1) << 2);  // X
+	vJoyData.lButtons |= (((t->m_State[0] >> 0) & 1) << 3);  // Y
+	vJoyData.lButtons |= (((t->m_State[0] >> 6) & 1) << 4);  // L1
+	vJoyData.lButtons |= (((t->m_State[0] >> 7) & 1) << 5);  // R1
+	vJoyData.lButtons |= (((t->m_State[0] >> 5) & 1) << 6);  // Select
+	vJoyData.lButtons |= (((t->m_State[0] >> 4) & 1) << 7);  // Start
+	vJoyData.lButtons |= (((t->m_State[1] >> 6) & 1) << 8);  // L3
+	vJoyData.lButtons |= (((t->m_State[1] >> 7) & 1) << 9);  // R3
 	
-	switch((m_State[1] & 0x0F))
+	switch((t->m_State[1] & 0x0F))
 	{
 	case 0x01:  vJoyData.bHats = 0;     break;  // Hat N
 	case 0x09:  vJoyData.bHats = 4500;  break;  // Hat NE
@@ -273,35 +269,125 @@ void CMogaSerialMain::vJoyUpdate()
 	default:    vJoyData.bHats = -1;
 	}
 
-	vJoyData.wAxisX = FixAxis(m_State[2]) * 128;
-	vJoyData.wAxisY = (0xff - FixAxis(m_State[3])) * 128;  //invert
-	vJoyData.wAxisXRot = FixAxis(m_State[4]) * 128;
-	vJoyData.wAxisYRot = (0xff - FixAxis(m_State[5])) * 128;  //invert
+	vJoyData.wAxisX = FixAxis(t->m_State[2]) * 128;
+	vJoyData.wAxisY = (0xff - FixAxis(t->m_State[3])) * 128;  //invert
+	vJoyData.wAxisXRot = FixAxis(t->m_State[4]) * 128;
+	vJoyData.wAxisYRot = (0xff - FixAxis(t->m_State[5])) * 128;  //invert
 
-	switch (m_TriggerMode) {
+	switch (t->m_TriggerMode) {
 	case 0:  // Independant axis triggers
-		vJoyData.wAxisZ = m_State[6] * 128;
-		vJoyData.wAxisZRot = m_State[7] * 128;
+		vJoyData.wAxisZ = t->m_State[6] * 128;
+		vJoyData.wAxisZRot = t->m_State[7] * 128;
 		break;
 	case 1:  // Combined axis triggers
-		vJoyData.wAxisZ = 0x4000 + (m_State[6] * 64) - (m_State[7] * 64);
+		vJoyData.wAxisZ = 0x4000 + (t->m_State[6] * 64) - (t->m_State[7] * 64);
 		vJoyData.wAxisZRot = 0x4000;
 		break;
 	case 2:  // Triggers as buttons
-		vJoyData.lButtons |= (((m_State[1] >> 4) & 1) << 10);  // L2
-		vJoyData.lButtons |= (((m_State[1] >> 5) & 1) << 11);  // R2
+		vJoyData.lButtons |= (((t->m_State[1] >> 4) & 1) << 10);  // L2
+		vJoyData.lButtons |= (((t->m_State[1] >> 5) & 1) << 11);  // R2
 		vJoyData.wAxisZ = 0x4000;;
 		vJoyData.wAxisZRot = 0x4000;;
 		break;
 	}
 		
-	UpdateVJD(m_vJoyInt, (PVOID)&vJoyData);
+	UpdateVJD(t->m_vJoyInt, (PVOID)&vJoyData);
 }
 
 
-void CMogaSerialMain::intHandler(int sig)
+// Make the system think an xbox360 contoller has been plugged in or removed.  Unfortunately,
+// there doesn't seem to be a way of ensuring nobody else is using that controller when unplugging it.
+// SCP doesn't report the xinput device number, so we have to compare the xinput state before and after
+// attaching the virtual pad to see which number we've been assigned.
+// The Moga won't respond with a CID of 0.  5 turns off the blue lights but still functions, works as a good error mode.
+int ScpCtrl::SCP_OnOff(CMogaSerialMain *t, bool connect)
 {
-	m_KeepGoing = false;
+	unsigned char Data[16];
+	int i, retVal;
+	XINPUT_STATE xState;
+	DWORD Transfered, xConnected[4];
+	memset(Data, 0, sizeof(Data));
+	Data[0] = 0x10;
+	Data[4] = ((t->m_Addr >> 0) & 0xFF);
+	Data[5] = ((t->m_Addr >> 8) & 0xFF);
+	Data[6] = ((t->m_Addr >> 16) & 0xFF);
+	Data[7] = ((t->m_Addr >> 24) & 0xFF);
+
+	memset(t->m_State, 0, MOGABUF_LEN);  // zero the controller on connect/disconnect
+	if (connect)
+	{
+		for (i = 0; i < 4; i++)  // xinput connection status pre-attach
+			xConnected[i] = XInputGetState(i, &xState);
+		retVal = DeviceIoControl(t->m_ScpHandle, 0x2A4000, Data, sizeof(Data), 0, 0, &Transfered, 0); // plugin
+		Sleep(100);
+		if (!retVal)
+		{
+			::PostMessage(t->m_hGUI, WM_MOGAHANDLER_MSG, IDS_SCP_ERR1, 0);
+			Sleep(2000);
+			// This can blow away any existing instance of the driver on this controller ID.
+			// Not optimal, but necessary in case a system crash leaves a phantom controller attached.
+			retVal = TRUE;
+		}
+		SCP_Update(t);  // update to zero
+		for (i = 0; i < 4; i++)  // xinput connection status post-attach
+			if (xConnected[i] != XInputGetState(i, &xState))
+				break;
+		t->m_CID = i+1;  // The blue Moga lights now mean something!
+		if (t->m_CID < 5)
+			::PostMessage(t->m_hGUI, WM_MOGAHANDLER_MSG, IDS_SCP_XNUM, 0);
+		else
+			::PostMessage(t->m_hGUI, WM_MOGAHANDLER_MSG, IDS_SCP_ERR2, 0);
+		Sleep(500);
+	}
+	else
+	{
+		SCP_Update(t);  // update to zero
+		Sleep(100);
+		retVal = DeviceIoControl(t->m_ScpHandle, 0x2A4004, Data, sizeof(Data), 0, 0, &Transfered, 0); // unplug
+	}
+	return retVal;
+}
+
+
+// Trigger and axis data from the Moga is apparently exactly what an Xbox360 controller expects.
+// Pressing start + select together seems like a good way to emulate the Xbox guide button.
+// Again, the data structure and update command are pulled from working source code.
+// I've no idea what the control codes or unused bytes are doing, or could do.
+void ScpCtrl::SCP_Update(CMogaSerialMain *t)
+{
+	unsigned char Data[28];
+	DWORD Transfered;
+	memset(Data, 0, sizeof(Data));
+	Data[0] = 0x1C;
+	Data[4] = ((t->m_Addr >> 0) & 0xFF);
+	Data[5] = ((t->m_Addr >> 8) & 0xFF);
+	Data[6] = ((t->m_Addr >> 16) & 0xFF);
+	Data[7] = ((t->m_Addr >> 24) & 0xFF);
+	Data[9] = 0x14;
+
+	Data[11] |= (((t->m_State[0] >> 5) & 
+		          (t->m_State[0] >> 4) & 1) << 2);  // Guide
+	Data[11] |= (((t->m_State[0] >> 6) & 1) << 0);  // L1
+	Data[11] |= (((t->m_State[0] >> 7) & 1) << 1);  // R1
+	Data[11] |= (((t->m_State[0] >> 2) & 1) << 4);  // A
+	Data[11] |= (((t->m_State[0] >> 1) & 1) << 5);  // B
+	Data[11] |= (((t->m_State[0] >> 3) & 1) << 6);  // X
+	Data[11] |= (((t->m_State[0] >> 0) & 1) << 7);  // Y
+	Data[10] |= (((t->m_State[0] >> 4) & 1) << 4);  // Start
+	Data[10] |= (((t->m_State[0] >> 5) & 1) << 5);  // Select
+	Data[10] |= (((t->m_State[1] >> 6) & 1) << 6);  // L3
+	Data[10] |= (((t->m_State[1] >> 7) & 1) << 7);  // R3
+
+	Data[10] |= t->m_State[1] & 0x0f;  // Dpad
+	
+	Data[15] = t->m_State[2];  // Left X-axis
+	Data[17] = t->m_State[3];  // Left Y-axis
+	Data[19] = t->m_State[4];  // Right X-axis
+	Data[21] = t->m_State[5];  // Right Y-axis
+	Data[12] = t->m_State[6];  // Left Trigger
+	Data[13] = t->m_State[7];  // Right Trigger
+
+	DeviceIoControl(t->m_ScpHandle, 0x2A400C, Data, sizeof(Data), 0, 0, &Transfered, 0);
 }
 
 
@@ -312,23 +398,35 @@ int CMogaSerialMain::Moga_Main()
 	// Boosting thread priority by 2 to combat input lag on some systems.
 	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
 
-	retVal = vJoyAttach();
-	if (retVal < 1)
-		return(retVal);
+	switch (m_Driver) {
+	case 0:  // vJoy driver
+		DriverAttach = &vJoyCtrl::vJoyAttach;
+		DriverUpdate = &vJoyCtrl::vJoyUpdate;
+		break;
+	case 1:  // SCP driver
+		DriverAttach = &ScpCtrl::SCP_OnOff;
+		DriverUpdate = &ScpCtrl::SCP_Update;
+		break;
+	}
 
 	switch (m_TriggerMode) {
-	case 0:
-	case 1:
+	case 0:  // Separate axis triggers
+	case 1:  // Combined axis triggers
 		poll_code = 69;
 		listen_code = 70;
 		recv_msg_len = 14;
 		break;
-	case 2:
+	case 2:  // Triggers as buttons.  This mode should also allow MogaSerial to work with the original Moga pocket.
 		poll_code = 65;
 		listen_code = 68;
 		recv_msg_len = 12;
 		break;
 	}
+
+	retVal = DriverAttach(this, true);
+	if (retVal < 1)
+		return(retVal);
+
 	while(m_KeepGoing)
 	{
 		retVal = MogaConnect();
@@ -337,6 +435,6 @@ int CMogaSerialMain::Moga_Main()
 		// MogaListener only returns on an error.
 		MogaReset();
 	}
-	RelinquishVJD(m_vJoyInt);
+	DriverAttach(this, false);
 	return 0;
 }

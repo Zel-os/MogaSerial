@@ -3,8 +3,7 @@
 //
 
 #pragma once
-#include "afxwin.h"
-#include "afxbutton.h"
+#include "stdafx.h"
 #include "MogaSerial_c.h"
 
 
@@ -14,6 +13,7 @@
 typedef		ULONGLONG		BT_ADDR;
 struct BLUETOOTH_INFO{
 	wchar_t name[128];
+	wchar_t name2[32];
 	BT_ADDR addr;
 };
 struct BLUETOOTH_THREAD_PARAMS{
@@ -86,7 +86,7 @@ public:
 	CMFCButton c_BTRefresh;
 	CComboBox c_vJoyID;
 	CButton c_Drv1, c_Drv2;
-	int m_iDrv;
+	int m_iDriver;
 	CButton c_TModeA, c_TModeB, c_TModeC;
 	int m_iTriggerMode;
 	CEdit c_Output;

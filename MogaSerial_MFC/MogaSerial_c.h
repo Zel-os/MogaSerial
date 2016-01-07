@@ -1,7 +1,7 @@
 #ifndef _MOGASERIAL_H
 #define _MOGASERIAL_H
 
-
+#pragma once
 #include "stdafx.h"
 #include "resource.h"
 
@@ -24,29 +24,43 @@ private:
 	int		MogaConnect();
 	void	MogaReset();
 	void	MogaListener();
-	int		vJoyAttach();
-	void	vJoyUpdate();
-	void	intHandler(int);
 	void	PrintBuf(unsigned char *);
+	int		(*DriverAttach)(CMogaSerialMain *, bool);
+	void	(*DriverUpdate)(CMogaSerialMain *);
 
 protected:
-	unsigned char   m_State[MOGABUF_LEN];
 	unsigned char	poll_code;
 	unsigned char	listen_code;
 	unsigned char	recv_msg_len;
 
 public:
-	int		Moga_Main();
+	int				Moga_Main();
 	HWND			m_hGUI;
-	UINT            m_vJoyInt;
+	HANDLE			m_ScpHandle;
+	UINT			m_vJoyInt;
 	BT_ADDR         m_Addr;
 	SOCKET          m_Socket;
 	int				m_TriggerMode;
+	int				m_Driver;
 	unsigned char   m_CID;
+	unsigned char   m_State[MOGABUF_LEN];
 	volatile BOOL	m_Debug;
 	volatile BOOL	m_KeepGoing;
 };
 
-void	PrintBuf(unsigned char *);
+
+class vJoyCtrl
+{
+public:
+	static int	vJoyAttach(CMogaSerialMain *, bool);
+	static void	vJoyUpdate(CMogaSerialMain *);
+};
+
+class ScpCtrl
+{
+public:
+	static int	SCP_OnOff(CMogaSerialMain *, bool);
+	static void	SCP_Update(CMogaSerialMain *);
+};
 
 #endif
