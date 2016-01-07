@@ -1,36 +1,45 @@
 
-## Moga Serial to vJoy Interface
+## Moga Serial to Windows Interface
 
 The Moga line of controllers are neat pieces of kit, with one glaring issue.  They don't work right in Windows!  No native driver means being forced to use generic HID mode, which unfortunately comes with a whole host of problems.
 
-Connection issues aside, the Moga identifies the triggers via the HID codes `AXIS_GAS` and `AXIS_BRAKE`.  Windows DirectInput doesn't recognize these, and thusly ignores them, despite the controller actually reporting trigger values.
+Connection issues aside, the Moga identifies the triggers via the HID codes `AXIS_GAS` and `AXIS_BRAKE`.  Windows DirectInput doesn't recognize these, and thusly ignores them, despite the controller actually reporting trigger values.  Fortunately there are alternatives!
 
-Fortunately the vJoy driver project gives an alternative.  MogaSerial connects to the Moga controller directly via its mode A serial interface, then feeds input data to the vJoy driver through its provided api.
+MogaSerial connects to the Moga gamepad directly via its mode A serial interface.  It can then feed controller data into either the vJoy driver for full DirectInput support, or into the SCP driver for native XInput support.
 
 -----
 ### Download
 
-The latest build of MogaSerial is 1.3.2, released Dec 15, 2015.  
-![>](http://i64.tinypic.com/voad5u.png) [MogaSerial-v132.zip](https://github.com/Zel-os/MogaSerial/releases/download/v1.3.2/MogaSerial-v132.zip) - x86 for Windows 7, 8, and 10 
+The latest build of MogaSerial is 1.5.0, released Jan 6, 2016.  
+![>](http://i64.tinypic.com/voad5u.png) [MogaSerial-v150.zip](https://github.com/Zel-os/MogaSerial/releases/download/v1.5.0/MogaSerial-v150.zip) - x86 for Windows 7, 8, and 10 
 
 
 -----
 ### Setup
 
-Installing vJoy 2.1.6 (or later) is required. (<http://vjoystick.sourceforge.net/>)
+The Moga controller doesn't need to be paired with Windows, but if so it will appear on the Bluetooth device list by default.  Pin is `1234`, if needed.  
 
-> It's also worth installing the [Xbox 360 Controller Emulator](http://www.x360ce.com/) for XInput support, at least until vJoy can support XInput natively.
+One (or both) of the interface drivers need to be installed:
 
-Run the vJoyConf configuration tool and set a controller as follows:
+##### XInput - SCP virtual bus driver
+For modern games and Steam's Big Picture mode, the SCP driver emulates an Xbox 360 controller and provides full native XInput support.
+
+This driver is included in the MogaSerial download.  Run ScpDriver.exe and click `Install`.  If you'd prefer to build the driver yourself, it can be obtained from <http://github.com/nefarius/ScpServer>.  
+
+>If you're running Windows 7, download and install the official [Xbox 360 Controller driver](http://www.microsoft.com/hardware/en-us/d/xbox-360-controller-for-windows).  This is pre-installed in both Windows 8 and 10.
+
+##### DirectInput - vJoy virtual device driver
+If you want full trigger support in older DirectInput games, or want to use your Moga alongside other controllers with [x360ce](http://www.x360ce.com/), the vJoy driver is a better option.  
+
+Download and install vJoy 2.1.6 (or later) from <http://vjoystick.sourceforge.net/>.  Then run the vJoyConf configuration tool and set a controller as follows:
 
  - Axes: `X` `Y` `Z` `Rx` `Ry` `Rz`
  - Buttons: `12`
  - POV Hat: `1 Continuous`
 
 > If you will only use the triggers as axes, buttons can be 10.  
-> If you will only use the triggers as buttons, Z and Rz can be omitted.
-
-The Moga controller doesn't need to be paired with Windows, but if so will appear on the Bluetooth device list by default.  Pin is `1234`, if needed.
+> If you will only use the triggers as buttons, Z and Rz can be omitted.  
+> Button mode for triggers ought to be compatible with the older Moga Pocket.
 
 
 -----
@@ -38,9 +47,11 @@ The Moga controller doesn't need to be paired with Windows, but if so will appea
 
 Make sure Bluetooth is enabled, and ensure the Moga is switched to **MODE A**.
 
-Then just select your controller from the Bluetooth drop-down and click the Moga button in the lower-right.  After a couple seconds, it will connect and begin feeding data to the vJoy driver.  If the Moga is not in the list, click the orange refresh button to re-scan for local Bluetooth devices, and after a few seconds it ought to appear.
+Then just select your controller from the Bluetooth drop-down and click the Moga button in the lower-right.  After a couple seconds, it will connect and begin feeding data to the selected driver.  If your Moga is not in the list, click the orange refresh button to re-scan for local Bluetooth devices, and after a few seconds it ought to appear.
 
-Trigger mode determines how Windows will see `L2` and `R2`, either as the `Z` and `Rz` axis, as a combined `Z` axis, or as buttons `11` and `12`.
+The Xbox Guide button is emulated in XInput mode with SCP.  Press `Start + Select` together to trigger it.
+  
+Trigger mode is for vJoy only.  This determines how Windows will see `L2` and `R2`, either as the `Z` and `Rz` axis, as a combined `Z` axis, or as buttons `11` and `12`.  When using the SCP driver with DirectInput games, only combined trigger mode is available.
 
 If the Moga disconnects due to sleeping, being shut off, or a Bluetooth error, the program will reset the connection, wait a few seconds, and try to reconnect.  Click the Moga button again to stop the controller interface.
 
@@ -58,6 +69,10 @@ If the Moga disconnects due to sleeping, being shut off, or a Bluetooth error, t
 ------------------------
 ##### Changes
 
+* 1.5.0
+  * Added support for the SCP driver to get native XInput functionality.
+* 1.4.0
+  * GUI window now minimizes to the system tray.
 * 1.3.2
   * Tweaks to try and address the reported input lag problem.  
 * 1.3.0
