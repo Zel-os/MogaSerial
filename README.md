@@ -1,11 +1,11 @@
 
 ## Moga Serial to Windows Interface
 
-The Moga line of Android controllers are neat pieces of kit, with one glaring issue.  They don't work right in Windows!  They could easily be a great all-in-one wireless controller, but no native driver means being forced to use generic HID mode, and unfortunately this comes with a whole host of problems.
+The Moga line of Android controllers are neat pieces of kit, with one glaring issue.  They don't work right in Windows!  They could easily be a great all-in-one wireless controller, but no native driver meant being forced to use generic HID mode, and unfortunately this comes with a whole host of problems.
 
 Connection issues aside, the Moga identifies the triggers via the HID codes `AXIS_GAS` and `AXIS_BRAKE`.  Windows DirectInput doesn't recognize these, and thusly ignores them, despite the controller actually reporting trigger values.  Fortunately there are alternatives!
 
-MogaSerial connects to the Moga gamepad directly via its mode A serial interface.  It can then feed controller data into either the vJoy driver for full DirectInput support, or into the SCP driver for native XInput support.
+MogaSerial is a solution that connects to the Moga gamepad directly via its mode A serial interface.  It can then feed controller data into either the vJoy driver for full DirectInput support, or into the SCP driver for native XInput support.  With this, the Moga can finally serve as a fully-functional wireless controller across mobile platforms, laptops, and desktops alike.
 
 ![MogaSerial](http://i63.tinypic.com/30b2rz6.png)
 
