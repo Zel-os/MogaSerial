@@ -1,11 +1,13 @@
 
 ## Moga Serial to Windows Interface
 
-The Moga line of controllers are neat pieces of kit, with one glaring issue.  They don't work right in Windows!  No native driver means being forced to use generic HID mode, which unfortunately comes with a whole host of problems.
+The Moga line of Android controllers are neat pieces of kit, with one glaring issue.  They don't work right in Windows!  They could easily be a great all-in-one wireless controller, but no native driver means being forced to use generic HID mode, and unfortunately this comes with a whole host of problems.
 
 Connection issues aside, the Moga identifies the triggers via the HID codes `AXIS_GAS` and `AXIS_BRAKE`.  Windows DirectInput doesn't recognize these, and thusly ignores them, despite the controller actually reporting trigger values.  Fortunately there are alternatives!
 
 MogaSerial connects to the Moga gamepad directly via its mode A serial interface.  It can then feed controller data into either the vJoy driver for full DirectInput support, or into the SCP driver for native XInput support.
+
+![MogaSerial](http://i63.tinypic.com/30b2rz6.png)
 
 -----
 ### Download
@@ -26,7 +28,7 @@ For modern games and Steam's Big Picture mode, the SCP driver emulates an Xbox 3
 
 This driver is included in the MogaSerial download.  Run ScpDriver.exe and click `Install`.  If you'd prefer to build the driver yourself, it can be obtained from <http://github.com/nefarius/ScpServer>.  
 
->If you're running Windows 7, download and install the official [Xbox 360 Controller driver](http://www.microsoft.com/hardware/en-us/d/xbox-360-controller-for-windows).  This is pre-installed in both Windows 8 and 10.
+>If you're running Windows 7, also download and install the official [Xbox 360 Controller driver](http://www.microsoft.com/hardware/en-us/d/xbox-360-controller-for-windows).  This is pre-installed on both Windows 8 and 10.
 
 ##### DirectInput - vJoy virtual device driver
 If you want full trigger support in older DirectInput games, or want to use your Moga alongside other controllers with [x360ce](http://www.x360ce.com/), the vJoy driver is a better option.  
