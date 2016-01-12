@@ -61,6 +61,8 @@ If the Moga disconnects due to sleeping, being shut off, or a Bluetooth error, t
 -----
 #### Notes
 
+- Some basic troubleshooting information is on the GitHub [project wiki](https://github.com/Zel-os/MogaSerial/wiki).
+
 - The Moga responds to polling at approximately 100 updates per second.
 
 - Curiously, there seems to be no way to get battery status through the serial interface.  It's reported as a byte code when in HID mode B, but not here.
