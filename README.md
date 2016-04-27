@@ -12,8 +12,8 @@ MogaSerial is a solution that connects to the Moga gamepad directly via its mode
 -----
 ### Download
 
-The latest build of MogaSerial is 1.5.0, released Jan 6, 2016.  
-![>](http://i64.tinypic.com/voad5u.png) [MogaSerial-v150.zip](https://github.com/Zel-os/MogaSerial/releases/download/v1.5.0/MogaSerial-v150.zip) - x86 for Windows 7, 8, and 10 
+The latest build of MogaSerial is 1.5.1, released Jan 6, 2016.  
+![>](http://i64.tinypic.com/voad5u.png) [MogaSerial-v151.zip](https://github.com/Zel-os/MogaSerial/releases/download/v1.5.0/MogaSerial-v151.zip) - x86 for Windows 7, 8, and 10 
 
 
 -----
