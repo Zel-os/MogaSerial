@@ -73,6 +73,8 @@ If the Moga disconnects due to sleeping, being shut off, or a Bluetooth error, t
 ------------------------
 ##### Changes
 
+* 1.5.1
+  * Debug message added to show input lag from MogaSerial's perspective.
 * 1.5.0
   * Added support for the SCP driver to get native XInput functionality.
 * 1.4.0
