@@ -3,7 +3,7 @@
 
 The Moga line of Android controllers are neat pieces of kit, with one glaring issue.  They don't work right in Windows!  They could easily be a great all-in-one wireless controller, but no native driver meant being forced to use generic HID mode, and unfortunately this comes with a whole host of problems.
 
-Connection issues aside, the Moga identifies the triggers via the HID codes `AXIS_GAS` and `AXIS_BRAKE`.  Windows DirectInput doesn't recognize these, and thusly ignores them, despite the controller actually reporting trigger values.  Fortunately there are alternatives!
+Connection issues aside, the L2/R2 triggers are nonfunctional by default.  The Moga identifies the triggers via the HID codes `AXIS_GAS` and `AXIS_BRAKE`, which Windows DirectInput doesn't recognize and therefore ignores, despite the controller actually reporting trigger values.  Fortunately there are alternatives!
 
 MogaSerial is a solution that connects to the Moga gamepad directly via its mode A serial interface.  It can then feed controller data into either the vJoy driver for full DirectInput support, or into the SCP driver for native XInput support.  With this, the Moga can finally serve as a fully-functional wireless controller across mobile platforms, laptops, and desktops alike.
 
@@ -67,7 +67,7 @@ If the Moga disconnects due to sleeping, being shut off, or a Bluetooth error, t
 
 - Curiously, there seems to be no way to get battery status through the serial interface.  It's reported as a byte code when in HID mode B, but not here.
 
-- I only own a Moga Power Pro for testing, but MogaSerial ought to work with all Moga-brand controllers.  From what I can tell, the serial communication protocol hasn't changed between models.
+- I only own a Moga Power Pro for testing, but MogaSerial ought to work with all Moga-brand Android controllers.  From what I can tell, the serial communication protocol hasn't changed between models.  Rebel and Ace support would require further work, as well as assistance from somebody who owns one.
 
 
 ------------------------
