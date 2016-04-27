@@ -18,6 +18,7 @@ Environment:
     kernel mode and User mode
 
 Revision History:
+	1.5.1 - Display input lag on our side of the bluetooth stack.
 	1.5.0 - Support for the SCP driver added.
 	1.3.2 - Priority boost and tweaks to address latency.
 	1.2.0 - Message callbacks and debug switch added.
@@ -112,11 +113,14 @@ void CMogaSerialMain::PrintBuf(unsigned char *buf)
 	int i, j;
 	static char dbuf[RECVBUF_LEN];
 	SYSTEMTIME t;
+	u_long bytes;
 
 	GetSystemTime(&t);
+	ioctlsocket(m_Socket, FIONREAD, &bytes);  // If bytes is > 0, we're behind on inputs and lagging.
 	j = sprintf_s(dbuf, RECVBUF_LEN, "[.%03d] \r\n", t.wMilliseconds);
 	for (i=0; i<buf[1]; i++)
 		j += sprintf_s(dbuf+j, RECVBUF_LEN-j, "%02x ", buf[i]);
+	sprintf_s(dbuf+j, RECVBUF_LEN-j, "\r\nInput queue: %d ", (bytes/recv_msg_len));
 	::PostMessage(m_hGUI, WM_MOGAHANDLER_MSG, IDS_MOGA_DEBUG, (LPARAM)dbuf);
 }
 
