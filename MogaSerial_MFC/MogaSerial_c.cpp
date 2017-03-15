@@ -176,6 +176,7 @@ void CMogaSerialMain::MogaListener()
 	MogaSendMsg(listen_code);  // Enable listen mode
 	while (retVal == 1 && m_KeepGoing)
 	{
+		MogaSendMsg(poll_code);
 		retVal = MogaGetMsg();
 		if (retVal < 1)
 		{
